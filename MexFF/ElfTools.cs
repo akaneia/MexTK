@@ -202,7 +202,7 @@ namespace MexFF
                             Relocs.Add(new Reloc()
                             {
                                 RelocOffset = sections[sec.sh_info].sh_offset + relocA[i].r_offset,
-                                FunctionOffset = sections[symbol.st_shndx].sh_offset,
+                                FunctionOffset = sections[symbol.st_shndx].sh_offset + relocA[i].r_addend,
                                 Flag = relocA[i].R_TYP
                             });
 
@@ -214,9 +214,8 @@ namespace MexFF
                                     r.ReadString((int)(sectionStrings.sh_offset + sections[symbol.st_shndx].sh_name), -1),
                                     (sections[sec.sh_info].sh_offset + relocA[i].r_offset).ToString("X"),
                                     relocA[i].R_TYP.ToString("X"),
-                                    r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1)
-                                    )
-                                );
+                                    r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1))
+                                + " " + relocA[i].r_addend.ToString("X"));
 
                         }
                     }
