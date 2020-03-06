@@ -41,6 +41,19 @@ namespace MexFF
             "onunknownmultijump",
             "onactionstatechangewhileeyetextureischanged",
             "ontwoentrytable",
+            "onkirbyswallow",
+            "onkirbyloseability",
+            "kirbyspecialn",
+            "kirbyspecialnair",
+            "kirbyonhit",
+            "kirbyoniteminit",
+            "enterfloat",
+            "enterdoublejump",
+            "entertether",
+            "onlanding",
+            "onsmashf",
+            "onsmashhi",
+            "onsmashlw",
         };
 
         public class Symbols
@@ -61,14 +74,14 @@ namespace MexFF
             public uint Flag;
         }
 
-        public static void CToDAT(string cFile, string outputDat, string symbolName, string[] funcTable = null, bool injectDat = false, bool quiet = false)
+        public static HSDAccessor CToDAT(string cFile, string[] funcTable = null, bool quiet = false)
         {
             // prepare
             //var tempfile = Path.GetTempFileName();
             var temp = Path.Combine(Path.GetDirectoryName(cFile), "Makefile");
 
             //if (File.Exists(temp))
-             //   throw new Exception("Makefile already exists in directory, please move or delete it and try again");
+            //   throw new Exception("Makefile already exists in directory, please move or delete it and try again");
             File.WriteAllText(temp, MakeFile.MFILE);
 
             Process p = new Process();
@@ -81,8 +94,8 @@ namespace MexFF
             p.Start();
 
             p.WaitForExit();
-            
-            if(p.ExitCode != 0)
+
+            if (p.ExitCode != 0)
             {
                 Console.WriteLine();
                 throw new InvalidDataException($"{Path.GetFileName(cFile)} failed to compile, see output above for details");
@@ -94,19 +107,19 @@ namespace MexFF
             if (!File.Exists(elf))
                 throw new Exception("Failed to compile; see output");
 
-            ELFToDAT(elf, outputDat, symbolName, funcTable, injectDat, quiet);
+            return ELFToDAT(elf, funcTable, quiet);
 
             // Cleanup
             //File.Delete(tempfile);
         }
 
-        public static void ELFToDAT(string elfFile, string outputDat, string symbolName, string[] funcTable = null, bool injectDat = false, bool quiet = false)
+        public static HSDAccessor ELFToDAT(string elfFile, string[] funcTable = null, bool quiet = false)
         {
             // function table
             var fncTable = funcTable;
             if (fncTable == null)
                 fncTable = ftFunctionStrings;
-    
+
             // parse elf file
             using (BinaryReaderExt r = new BinaryReaderExt(new FileStream(elfFile, FileMode.Open)))
             {
@@ -160,14 +173,14 @@ namespace MexFF
                 List<Reloc> Relocs = new List<Reloc>();
                 foreach (var sec in sections)
                 {
-                    if(!quiet)
-                    Console.WriteLine(String.Format("{0, -30} |Type: {5, -15} |Offset: {3, -10} |Size: {4, -10} |Link: {1, -10} |Info: {2, -40}|",
-                        r.ReadString((int)(sectionStrings.sh_offset + sec.sh_name), -1),
-                        r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_link].sh_name), -1),
-                        r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1),
-                        sec.sh_offset.ToString("X"),
-                        sec.sh_size.ToString("X"),
-                        sec.sh_type));
+                    if (!quiet)
+                        Console.WriteLine(String.Format("{0, -30} |Type: {5, -15} |Offset: {3, -10} |Size: {4, -10} |Link: {1, -10} |Info: {2, -40}|",
+                            r.ReadString((int)(sectionStrings.sh_offset + sec.sh_name), -1),
+                            r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_link].sh_name), -1),
+                            r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1),
+                            sec.sh_offset.ToString("X"),
+                            sec.sh_size.ToString("X"),
+                            sec.sh_type));
 
                     if (sec.sh_type == SectionType.SHT_RELA || sec.sh_type == SectionType.SHT_REL)
                     {
@@ -261,7 +274,7 @@ namespace MexFF
                     });
                 }
 
-                
+
                 byte[] code = r.GetSection(codeStart, (int)(codeEnd - codeStart));
                 HSDStruct functionTable = new HSDStruct(fncTable.Length * 4);
                 for (int i = 0; i < functionTable.Length; i++)
@@ -271,16 +284,16 @@ namespace MexFF
 
                 if (!quiet)
                     Console.WriteLine("Functions:");
-                
+
                 foreach (var v in Functions)
                 {
                     v.CodeOffset -= codeStart;
                     if (!string.IsNullOrEmpty(v.Name) && v.SectionIndex > 0)
                     {
-                        var fncTableIndex = Array.FindIndex(fncTable, e=>e.Equals(v.Name.ToLower()));
+                        var fncTableIndex = Array.FindIndex(fncTable, e => e.Equals(v.Name.ToLower()));
                         if (fncTableIndex != -1)
                             functionTable.SetInt32(fncTableIndex * 4, (int)v.CodeOffset);
-                        
+
                         if (!quiet)
                             Console.WriteLine($"\t{v.Name,-25} | {v.CodeOffset.ToString("X"),-10}");
                     }
@@ -310,37 +323,15 @@ namespace MexFF
                     }
                 }
 
-                HSDRawFile f;
 
-                if (injectDat)
-                    f = new HSDRawFile(outputDat);
-                else
-                    f = new HSDRawFile();
+                var function = new HSDAccessor() { _s = new HSDStruct(0x10) };
 
-                // generate root
-                var root = new HSDRootNode();
-                root.Name = symbolName;
-                root.Data = new HSDAccessor() { _s = new HSDStruct(0x10) };
+                function._s.SetReferenceStruct(0x00, new HSDStruct(code));
+                function._s.SetReferenceStruct(0x04, functionTable);
+                function._s.SetReferenceStruct(0x08, relocationTable);
+                function._s.SetInt32(0x0C, relocCount);
 
-                root.Data._s.SetReferenceStruct(0x00, new HSDStruct(code));
-                root.Data._s.SetReferenceStruct(0x04, functionTable);
-                root.Data._s.SetReferenceStruct(0x08, relocationTable);
-                root.Data._s.SetInt32(0x0C, relocCount);
-
-                // if this symbol already exists in file, replace it
-                foreach (var ro in f.Roots)
-                {
-                    if(ro.Name.Equals(root.Name))
-                    {
-                        ro.Data = root.Data;
-                    }
-                }
-                // if symbol is not in file, then add it
-                if (f.Roots.FindIndex(e => e.Name == root.Name) == -1)
-                    f.Roots.Add(root);
-
-                // save new file
-                f.Save(outputDat);
+                return function;
             }
         }
 

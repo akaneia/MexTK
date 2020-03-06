@@ -1,4 +1,6 @@
-﻿using System;
+﻿using HSDRaw;
+using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace MexFF
@@ -7,6 +9,7 @@ namespace MexFF
     {
         static void Main(string[] args)
         {
+            List<Tuple<int, string>> itemInputs = new List<Tuple<int, string>>();
             string input = "";
             string output = "";
             string symbolName = "ftFunction";
@@ -19,6 +22,8 @@ namespace MexFF
             {
                 if (args[i] == "-i" && i + 1 < args.Length)
                     input = args[i + 1];
+                if (args[i] == "-ii" && i + 2 < args.Length)
+                    itemInputs.Add(new Tuple<int, string>(int.Parse(args[i + 1]), args[i + 2]));
                 if (args[i] == "-o" && i + 1 < args.Length)
                     output = args[i + 1];
                 if (args[i] == "-s" && i + 1 < args.Length)
@@ -31,7 +36,16 @@ namespace MexFF
                     quiet = true;
             }
 
-            if (string.IsNullOrEmpty(input) || args.Length == 0)
+            if(!string.IsNullOrEmpty(input) && itemInputs.Count > 0)
+            {
+                Console.WriteLine("Only -i or -ii can be used at once, not both");
+                Console.ReadLine();
+                return;
+            }
+            
+            if (string.IsNullOrEmpty(input)
+                 && itemInputs.Count == 0
+                || args.Length == 0)
             {
                 PrintInstruction();
                 Console.ReadLine();
@@ -44,13 +58,6 @@ namespace MexFF
                 injectDat = true;
             }
 
-            if (!File.Exists(input) || (Path.GetExtension(input) != ".c" && Path.GetExtension(input) != ".o"))
-            {
-                Console.WriteLine($"Error:\n{input} does not exist or is invalid\nPress enter to exit");
-                Console.ReadLine();
-                return;
-            }
-
             if (string.IsNullOrEmpty(output))
                 output = Path.Combine(Path.GetDirectoryName(input), Path.GetFileName(input).Replace(Path.GetExtension(input), ".dat"));
             
@@ -61,16 +68,106 @@ namespace MexFF
                     return;
             }
 
+            HSDAccessor function = null;
+
+            if (itemInputs.Count == 0)
+            {
+                if (!CheckFileExists(input))
+                    return;
+                function = CompileInput(input, fightFuncTable, quiet);
+            }
+            else
+            {
+                var table = new HSDAccessor() { _s = new HSDStruct(8 * itemInputs.Count) };
+
+                int i = 0;
+                foreach(var f in itemInputs)
+                {
+                    if (!CheckFileExists(f.Item2))
+                        return;
+                    var relocFunc = CompileInput(f.Item2, fightFuncTable, quiet);
+                    table._s.SetInt32(0x08 * i, f.Item1);
+                    table._s.SetReference(0x08 * i + 4, relocFunc);
+                    i++;
+                }
+
+                // multiple tables baby
+                function = new HSDAccessor() { _s = new HSDStruct(8) };
+                function._s.SetInt32(0x00, itemInputs.Count);
+                function._s.SetReference(0x04, table);
+            }
+            
+            if (function != null)
+            {
+                HSDRawFile f;
+
+                if (injectDat)
+                    f = new HSDRawFile(output);
+                else
+                    f = new HSDRawFile();
+
+                // generate root
+                var root = new HSDRootNode();
+                root.Name = symbolName;
+                root.Data = function;
+
+                // if this symbol already exists in file, replace it
+                foreach (var ro in f.Roots)
+                {
+                    if (ro.Name.Equals(root.Name))
+                    {
+                        ro.Data = root.Data;
+                    }
+                }
+                // if symbol is not in file, then add it
+                if (f.Roots.FindIndex(e => e.Name == root.Name) == -1)
+                    f.Roots.Add(root);
+
+                // save new file
+                f.Save(output);
+
+                // We did it boys
+                Console.WriteLine();
+                Console.WriteLine("Sucessfully Compiled and Converted to DAT!");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("press enter to exit...");
+            Console.ReadLine();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static bool CheckFileExists(string input)
+        {
+            if (!File.Exists(input) || (Path.GetExtension(input) != ".c" && Path.GetExtension(input) != ".o"))
+            {
+                Console.WriteLine($"Error:\n{input} does not exist or is invalid\nPress enter to exit");
+                Console.ReadLine();
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="input"></param>
+        /// <param name="fightFuncTable"></param>
+        /// <param name="quiet"></param>
+        /// <returns></returns>
+        private static HSDAccessor CompileInput(string input, string[] fightFuncTable, bool quiet)
+        {
             var ext = Path.GetExtension(input).ToLower();
 
             if (ext.Equals(".o"))
             {
                 try
                 {
-                    ELFTools.ELFToDAT(input, output, symbolName, fightFuncTable, injectDat, quiet);
-
-                    Console.WriteLine();
-                    Console.WriteLine("Sucessfully Converted ELF to DAT!");
+                    return ELFTools.ELFToDAT(input, fightFuncTable, quiet);
                 }
                 catch (Exception e)
                 {
@@ -82,36 +179,39 @@ namespace MexFF
             {
                 try
                 {
-                    ELFTools.CToDAT(input, output, symbolName, fightFuncTable, injectDat, quiet);
-
-                    Console.WriteLine();
-                    Console.WriteLine("Sucessfully Compiled and Converted C to DAT!");
+                    return ELFTools.CToDAT(input, fightFuncTable, quiet);
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e.ToString());
                 }
             }
-
-            Console.WriteLine();
-            Console.WriteLine("press enter to exit...");
-            Console.ReadLine();
+            return null;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private static void PrintInstruction()
         {
             Console.WriteLine(@"MexFF Compiler
 
-Usage: mexff.exe (options)
+Usage: mexff.exe (type) (options)
 Options:
-    -i (file(.c, .o(ELF))) : Input File (.c and .o (elf)) files are supported
+    -i (file(.c, .o(ELF))) : Input File (.c and .o (elf)) files are supported can have multiple inputs for 'it' type
+    -ii (item index) (file(.c, .o(ELF))) : Specific index used for building ft tables
     -o (file.dat) : output dat file name
     -d (file.dat) : dat file to inject symbol into (will not output a 'new' dat file)
-    -s (name) : symbol name (default is ftFunction)
+    -s (name) : symbol name (default is ftFunction for ft and itFunction for it)
     -t (file.txt) : specify symbol table list
     -q : Quiet Mode (Console doesn't print information)
 
-Ex: mexff.exe -q -i 'main.c' -o 'ftFunction.dat'
+Ex: mexff.exe -i 'main.c' -o 'ftFunction.dat' -q
+Compile 'main.c' and outputs 'ftFunction.dat' in quiet mode
+
+Ex: mexff.exe -ii 0 'bomb.c' -ii 3 'arrow.c' -d 'PlMan.dat' -s 'itFunction'
+Creates function table with bomb.c with index 0 and arrow.c with index 3
+and injects it into PlMan.dat with the symbol name itFunction
 
 Note: in order to compile .c files you must 
 have DEVKITPPC installed with GameCube rules
