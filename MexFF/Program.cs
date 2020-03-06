@@ -78,23 +78,23 @@ namespace MexFF
             }
             else
             {
-                var table = new HSDAccessor() { _s = new HSDStruct(8 * itemInputs.Count) };
+                function = new HSDAccessor() { _s = new HSDStruct(4) };
 
-                int i = 0;
+                int count = 0;
                 foreach(var f in itemInputs)
                 {
                     if (!CheckFileExists(f.Item2))
                         return;
-                    var relocFunc = CompileInput(f.Item2, fightFuncTable, quiet);
-                    table._s.SetInt32(0x08 * i, f.Item1);
-                    table._s.SetReference(0x08 * i + 4, relocFunc);
-                    i++;
-                }
 
-                // multiple tables baby
-                function = new HSDAccessor() { _s = new HSDStruct(8) };
-                function._s.SetInt32(0x00, itemInputs.Count);
-                function._s.SetReference(0x04, table);
+                    count = Math.Max(count, f.Item1);
+
+                    if (4 + 4 * (f.Item1 + 1) > function._s.Length)
+                        function._s.Resize(4 + 4 * (f.Item1 + 1));
+
+                    var relocFunc = CompileInput(f.Item2, fightFuncTable, quiet);
+                    function._s.SetReference(4 + 0x04 * f.Item1, relocFunc);
+                }
+                function._s.SetInt32(0x00, count);
             }
             
             if (function != null)
