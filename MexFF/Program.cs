@@ -86,7 +86,7 @@ namespace MexFF
                     if (!CheckFileExists(f.Item2))
                         return;
 
-                    count = Math.Max(count, f.Item1);
+                    count = Math.Max(count, f.Item1 + 1);
 
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
