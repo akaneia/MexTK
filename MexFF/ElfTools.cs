@@ -8,54 +8,6 @@ namespace MexFF
 {
     public class ELFTools
     {
-        public static string[] ftFunctionStrings = new string[]
-        {
-            "onload",
-            "ondeath",
-            "onunknown",
-            "move_logic",
-            "specialn",
-            "specialnair",
-            "specials",
-            "specialsair",
-            "specialhi",
-            "specialhiair",
-            "speciallw",
-            "speciallwair",
-            "onabsorb",
-            "onitempickup",
-            "onmakeiteminvisible",
-            "onmakeitemvisible",
-            "onitemdrop",
-            "onitemcatch",
-            "onunknownitemrelated",
-            "onunknowncharactermodelflags1",
-            "onunknowncharactermodelflags2",
-            "onhit",
-            "onunknowneyetexturerelated",
-            "onframe",
-            "onactionstatechange",
-            "onrespawn",
-            "onmodelrender",
-            "onshadowrender",
-            "onunknownmultijump",
-            "onactionstatechangewhileeyetextureischanged",
-            "ontwoentrytable",
-            "onkirbyswallow",
-            "onkirbyloseability",
-            "kirbyspecialn",
-            "kirbyspecialnair",
-            "kirbyonhit",
-            "kirbyoniteminit",
-            "enterfloat",
-            "enterdoublejump",
-            "entertether",
-            "onlanding",
-            "onsmashf",
-            "onsmashhi",
-            "onsmashlw",
-        };
-
         public class Symbols
         {
             public string Name;
@@ -74,7 +26,7 @@ namespace MexFF
             public uint Flag;
         }
 
-        public static HSDAccessor CToDAT(string cFile, string[] funcTable = null, bool quiet = false)
+        public static HSDAccessor CToDAT(string cFile, Dictionary<string, uint> funcTable = null, bool quiet = false)
         {
             // prepare
             //var tempfile = Path.GetTempFileName();
@@ -82,7 +34,8 @@ namespace MexFF
 
             //if (File.Exists(temp))
             //   throw new Exception("Makefile already exists in directory, please move or delete it and try again");
-            File.WriteAllText(temp, MakeFile.MFILE);
+            if(!File.Exists(temp))
+                File.WriteAllText(temp, MakeFile.MFILE);
 
             Process p = new Process();
 
@@ -102,10 +55,12 @@ namespace MexFF
             }
 
             var elf = Path.Combine(Path.Combine(Path.GetDirectoryName(cFile), "build"), Path.GetFileNameWithoutExtension(cFile) + ".o");
-            //var elfd = Path.Combine(Path.Combine(Path.GetDirectoryName(cFile), "build"), Path.GetFileNameWithoutExtension(cFile) + ".d");
+            var elfd = Path.Combine(Path.Combine(Path.GetDirectoryName(cFile), "build"), Path.GetFileNameWithoutExtension(cFile) + ".d");
 
             if (!File.Exists(elf))
                 throw new Exception("Failed to compile; see output");
+            if (File.Exists(elfd))
+                File.Delete(elfd);
 
             return ELFToDAT(elf, funcTable, quiet);
 
@@ -113,12 +68,12 @@ namespace MexFF
             //File.Delete(tempfile);
         }
 
-        public static HSDAccessor ELFToDAT(string elfFile, string[] funcTable = null, bool quiet = false)
+        public static HSDAccessor ELFToDAT(string elfFile, Dictionary<string, uint> funcTable = null, bool quiet = false)
         {
             // function table
             var fncTable = funcTable;
-            if (fncTable == null)
-                fncTable = ftFunctionStrings;
+            //if (fncTable == null)
+           //     fncTable = ftFunctionStrings;
 
             // parse elf file
             using (BinaryReaderExt r = new BinaryReaderExt(new FileStream(elfFile, FileMode.Open)))
@@ -257,9 +212,12 @@ namespace MexFF
 
                     var sec = sections[sym.st_shndx >= 0 ? sym.st_shndx : 0];
 
-                    if (sec.sh_offset == 0 && !(sym.st_name == 0 || sym.st_shndx < 0))
-                        throw new NotSupportedException("External function reference not supported " + r.ReadString((int)(symbolStrings.sh_offset + sym.st_name), -1));
+                    var funcName = r.ReadString((int)(symbolStrings.sh_offset + sym.st_name), -1);
 
+                    if (sec.sh_offset == 0 && !(sym.st_name == 0 || sym.st_shndx < 0))
+                    {
+                        throw new NotSupportedException($"External function reference to \"{funcName}\" in section \"{r.ReadString((int)(sectionStrings.sh_offset + sec.sh_name), -1)}\" not supported!");
+                    }
                     if (!(sym.st_name == 0 || sym.st_shndx < 0))
                     {
                         codeStart = Math.Min(sec.sh_offset, codeStart);
@@ -268,19 +226,18 @@ namespace MexFF
 
                     Functions.Add(new Symbols()
                     {
-                        Name = r.ReadString((int)(symbolStrings.sh_offset + sym.st_name), -1),
+                        Name = funcName,
                         CodeOffset = sec.sh_offset,
                         SectionIndex = sym.st_shndx
                     });
                 }
 
+                // Building RDAT
 
                 byte[] code = r.GetSection(codeStart, (int)(codeEnd - codeStart));
-                HSDStruct functionTable = new HSDStruct(fncTable.Length * 4);
-                for (int i = 0; i < functionTable.Length; i++)
-                    functionTable.SetByte(i, 0xFF);
-                HSDStruct relocationTable = new HSDStruct(0);
-                int relocCount = 0;
+
+                HSDStruct functionTable = new HSDStruct(8);
+                int funcCount = 0;
 
                 if (!quiet)
                     Console.WriteLine("Functions:");
@@ -290,9 +247,13 @@ namespace MexFF
                     v.CodeOffset -= codeStart;
                     if (!string.IsNullOrEmpty(v.Name) && v.SectionIndex > 0)
                     {
-                        var fncTableIndex = Array.FindIndex(fncTable, e => e.Equals(v.Name.ToLower()));
-                        if (fncTableIndex != -1)
-                            functionTable.SetInt32(fncTableIndex * 4, (int)v.CodeOffset);
+                        if (fncTable.ContainsKey(v.Name.ToLower()))
+                        {
+                            functionTable.Resize(8 * (funcCount + 1));
+                            functionTable.SetInt32(funcCount * 8, (int)fncTable[v.Name.ToLower()]);
+                            functionTable.SetInt32(funcCount * 8 + 4, (int)v.CodeOffset);
+                            funcCount++;
+                        }
 
                         if (!quiet)
                             Console.WriteLine($"\t{v.Name,-25} | {v.CodeOffset.ToString("X"),-10}");
@@ -300,6 +261,9 @@ namespace MexFF
                 }
                 if (!quiet)
                     Console.WriteLine("Reloc Table:");
+
+                HSDStruct relocationTable = new HSDStruct(0);
+                int relocCount = 0;
                 foreach (var v in Relocs)
                 {
                     v.FunctionOffset -= codeStart;
@@ -324,12 +288,13 @@ namespace MexFF
                 }
 
 
-                var function = new HSDAccessor() { _s = new HSDStruct(0x10) };
+                var function = new HSDAccessor() { _s = new HSDStruct(0x14) };
 
                 function._s.SetReferenceStruct(0x00, new HSDStruct(code));
-                function._s.SetReferenceStruct(0x04, functionTable);
-                function._s.SetReferenceStruct(0x08, relocationTable);
-                function._s.SetInt32(0x0C, relocCount);
+                function._s.SetReferenceStruct(0x04, relocationTable);
+                function._s.SetInt32(0x08, relocCount);
+                function._s.SetReferenceStruct(0x0C, functionTable);
+                function._s.SetInt32(0x10, funcCount);
 
                 return function;
             }

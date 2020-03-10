@@ -72,8 +72,8 @@ namespace MexFF
 
             if (itemInputs.Count == 0)
             {
-                if (!CheckFileExists(input))
-                    return;
+                //if (!CheckFileExists(input))
+                //    return;
                 function = CompileInput(input, fightFuncTable, quiet);
             }
             else
@@ -83,8 +83,8 @@ namespace MexFF
                 int count = 0;
                 foreach(var f in itemInputs)
                 {
-                    if (!CheckFileExists(f.Item2))
-                        return;
+                    //if (!CheckFileExists(f.Item2))
+                    //    return;
 
                     count = Math.Max(count, f.Item1 + 1);
 
@@ -163,11 +163,15 @@ namespace MexFF
         {
             var ext = Path.GetExtension(input).ToLower();
 
+            Dictionary<string, uint> funcTable = new Dictionary<string, uint>();
+            for (int i = 0; i < fightFuncTable.Length; i++)
+                funcTable.Add(fightFuncTable[i], (uint)i);
+
             if (ext.Equals(".o"))
             {
                 try
                 {
-                    return ELFTools.ELFToDAT(input, fightFuncTable, quiet);
+                    return ELFTools.ELFToDAT(input, funcTable, quiet);
                 }
                 catch (Exception e)
                 {
@@ -179,7 +183,7 @@ namespace MexFF
             {
                 try
                 {
-                    return ELFTools.CToDAT(input, fightFuncTable, quiet);
+                    return ELFTools.CToDAT(input, funcTable, quiet);
                 }
                 catch (Exception e)
                 {
