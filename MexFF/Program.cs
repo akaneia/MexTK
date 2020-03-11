@@ -163,9 +163,17 @@ namespace MexFF
         {
             var ext = Path.GetExtension(input).ToLower();
 
-            Dictionary<string, uint> funcTable = new Dictionary<string, uint>();
-            for (int i = 0; i < fightFuncTable.Length; i++)
-                funcTable.Add(fightFuncTable[i], (uint)i);
+            Dictionary<string, uint> funcTable = null;
+            if(fightFuncTable != null)
+            {
+                funcTable = new Dictionary<string, uint>();
+                for (int i = 0; i < fightFuncTable.Length; i++)
+                    funcTable.Add(fightFuncTable[i], (uint)i);
+            }
+            else
+            {
+                Console.WriteLine("No table input, overloading enabled");
+            }
 
             if (ext.Equals(".o"))
             {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using HSDRaw;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace MexFF
 {
@@ -247,6 +248,22 @@ namespace MexFF
                     v.CodeOffset -= codeStart;
                     if (!string.IsNullOrEmpty(v.Name) && v.SectionIndex > 0)
                     {
+                        if(fncTable == null)
+                        {
+                            var m = System.Text.RegularExpressions.Regex.Matches(v.Name, @"0[xX][0-9a-fA-F]+");
+                            if(m.Count > 0)
+                            {
+                                uint loc;
+                                if (uint.TryParse(m[0].Value.ToLower().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out loc))
+                                {
+                                    Console.WriteLine("Overloading ->" + m[0].Value + " : " + v.Name);
+                                    functionTable.Resize(8 * (funcCount + 1));
+                                    functionTable.SetInt32(funcCount * 8, (int)loc);
+                                    functionTable.SetInt32(funcCount * 8 + 4, (int)v.CodeOffset);
+                                    funcCount++;
+                                }
+                            }
+                        }else
                         if (fncTable.ContainsKey(v.Name.ToLower()))
                         {
                             functionTable.Resize(8 * (funcCount + 1));
