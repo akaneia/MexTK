@@ -140,12 +140,13 @@ namespace MexFF
 
                     if (sec.sh_type == SectionType.SHT_RELA || sec.sh_type == SectionType.SHT_REL)
                     {
-                        var count = (sec.sh_size / 0x0C);
+                        uint relSize = 0x0C;
+                        var count = (sec.sh_size / relSize);
 
                         ELFRelocA[] relocA = new ELFRelocA[count];
                         for (uint i = 0; i < count; i++)
                         {
-                            r.Seek(sec.sh_offset + 0x0C * i);
+                            r.Seek(sec.sh_offset + relSize * i);
 
                             relocA[i] = new ELFRelocA()
                             {
@@ -288,9 +289,6 @@ namespace MexFF
 
                     if (v.RelocOffset < code.Length)
                     {
-                        if (v.Flag != 0x06 && v.Flag != 0x04 && v.Flag != 0x01)
-                            throw new NotSupportedException("Relocation Flag Type " + v.Flag.ToString("X") + " not supported");
-
                         relocCount++;
                         relocationTable.Resize(relocCount * 0x08);
                         relocationTable.SetInt32(0x00 + (relocCount - 1) * 8, (int)v.RelocOffset);
@@ -301,6 +299,10 @@ namespace MexFF
                             v.RelocOffset.ToString("X"),
                             v.FunctionOffset.ToString("X"),
                             v.Flag.ToString("X"));
+
+                        if (v.Flag != 0x06 && v.Flag != 0x04 && v.Flag != 0x01 && v.Flag != 0x0A)
+                            throw new NotSupportedException("Relocation Flag Type " + v.Flag.ToString("X") + " not supported");
+
                     }
                 }
 
