@@ -17,6 +17,7 @@ namespace MexFF
             string[] fightFuncTable = null;
             bool injectDat = false;
             bool quiet = false;
+            bool yesOverwrite = false;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -29,7 +30,9 @@ namespace MexFF
                 if (args[i] == "-s" && i + 1 < args.Length)
                     symbolName = args[i + 1];
                 if (args[i] == "-d" && i + 1 < args.Length)
-                    datFile = args[i + 1];
+                    symbolName = args[i + 1];
+                if (args[i] == "-ow")
+                    yesOverwrite = true;
                 if (args[i] == "-t" && i + 1 < args.Length)
                     fightFuncTable = File.ReadAllLines(args[i + 1]);
                 if (args[i] == "-q")
@@ -61,7 +64,7 @@ namespace MexFF
             if (string.IsNullOrEmpty(output))
                 output = Path.Combine(Path.GetDirectoryName(input), Path.GetFileName(input).Replace(Path.GetExtension(input), ".dat"));
             
-            if (File.Exists(output))
+            if (File.Exists(output) && !yesOverwrite)
             {
                 Console.WriteLine(output + " already exists, overwrite? (y/n)");
                 if (Console.ReadLine().Trim().ToLower() != "y")
@@ -214,6 +217,7 @@ Options:
     -ii (item index) (file(.c, .o(ELF))) : Specific index used for building ft tables
     -o (file.dat) : output dat file name
     -d (file.dat) : dat file to inject symbol into (will not output a 'new' dat file)
+    -ow : overwrites files if it exists
     -s (name) : symbol name (default is ftFunction for ft and itFunction for it)
     -t (file.txt) : specify symbol table list
     -q : Quiet Mode (Console doesn't print information)
