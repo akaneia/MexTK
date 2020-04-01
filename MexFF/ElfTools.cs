@@ -159,6 +159,7 @@ namespace MexFF
                             var symStr = sections[symMap.sh_link];
 
                             r.Seek(symMap.sh_offset + 0x10 * (uint)relocA[i].R_SYM);
+                            r.PrintPosition();
                             var symbol = new ELFSymbol()
                             {
                                 st_name = r.ReadUInt32(),
@@ -169,23 +170,35 @@ namespace MexFF
                                 st_shndx = r.ReadInt16()
                             };
 
-                            Relocs.Add(new Reloc()
+                            if (symbol.st_shndx >= 0)
                             {
-                                RelocOffset = sections[sec.sh_info].sh_offset + relocA[i].r_offset,
-                                FunctionOffset = sections[symbol.st_shndx].sh_offset + relocA[i].r_addend,
-                                Flag = relocA[i].R_TYP
-                            });
+                                Relocs.Add(new Reloc()
+                                {
+                                    RelocOffset = sections[sec.sh_info].sh_offset + relocA[i].r_offset,
+                                    FunctionOffset = sections[symbol.st_shndx].sh_offset + relocA[i].r_addend,
+                                    Flag = relocA[i].R_TYP
+                                });
 
-                            if (!quiet)
-                                Console.WriteLine(
-                                String.Format(
-                                    "\t\t\t\t\t\t{0, -25} | {1, -10} | {2, -10} | {3, -10}",
-                                    r.ReadString((int)(symStr.sh_offset + symbol.st_name), -1),
-                                    r.ReadString((int)(sectionStrings.sh_offset + sections[symbol.st_shndx].sh_name), -1),
-                                    (sections[sec.sh_info].sh_offset + relocA[i].r_offset).ToString("X"),
-                                    relocA[i].R_TYP.ToString("X"),
-                                    r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1))
-                                + " " + relocA[i].r_addend.ToString("X"));
+                                if (!quiet)
+                                    Console.WriteLine(
+                                    String.Format(
+                                        "\t\t\t\t\t\t{0, -25} | {1, -10} | {2, -10} | {3, -10}",
+                                        r.ReadString((int)(symStr.sh_offset + symbol.st_name), -1),
+                                        r.ReadString((int)(sectionStrings.sh_offset + sections[symbol.st_shndx].sh_name), -1),
+                                        (sections[sec.sh_info].sh_offset + relocA[i].r_offset).ToString("X"),
+                                        relocA[i].R_TYP.ToString("X"),
+                                        r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1))
+                                    + " " + relocA[i].r_addend.ToString("X"));
+                            }
+                            else
+                            {
+                                Console.WriteLine("Warning: negative symbol index detected " + symbol.st_shndx.ToString("X") + " relocation entry skipped");
+
+                                if ((symbol.st_info & 0xF) != 0x4)
+                                    throw new NotSupportedException("This symbol relocation type is not currently supported");
+
+                            }
+
 
                         }
                     }
