@@ -159,7 +159,7 @@ namespace MexFF
                             var symStr = sections[symMap.sh_link];
 
                             r.Seek(symMap.sh_offset + 0x10 * (uint)relocA[i].R_SYM);
-                            r.PrintPosition();
+
                             var symbol = new ELFSymbol()
                             {
                                 st_name = r.ReadUInt32(),
