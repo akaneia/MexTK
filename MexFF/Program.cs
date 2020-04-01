@@ -30,7 +30,7 @@ namespace MexFF
                 if (args[i] == "-s" && i + 1 < args.Length)
                     symbolName = args[i + 1];
                 if (args[i] == "-d" && i + 1 < args.Length)
-                    symbolName = args[i + 1];
+                    datFile = args[i + 1];
                 if (args[i] == "-ow")
                     yesOverwrite = true;
                 if (args[i] == "-t" && i + 1 < args.Length)
