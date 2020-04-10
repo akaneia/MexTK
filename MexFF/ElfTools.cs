@@ -338,7 +338,7 @@ namespace MexFF
             public uint r_offset;
             public uint r_info;
             public uint r_addend;
-            public byte R_SYM => (byte)((r_info >> 8) & 0xFF);
+            public uint R_SYM => ((r_info >> 8) & 0xFFFFFF);
             public byte R_TYP => (byte)(r_info & 0xFF);
         }
 
