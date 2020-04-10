@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using HSDRaw;
+using System.Linq;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -16,6 +17,8 @@ namespace MexFF
             public uint CodeOffset;
 
             public int SectionIndex;
+
+            public bool External;
         }
 
         public class Reloc
@@ -24,7 +27,7 @@ namespace MexFF
 
             public uint FunctionOffset;
 
-            public uint Flag;
+            public RelocType Flag;
         }
 
         public static HSDAccessor CToDAT(string cFile, Dictionary<string, uint> funcTable = null, bool quiet = false)
@@ -71,10 +74,147 @@ namespace MexFF
 
         public static HSDAccessor ELFToDAT(string elfFile, Dictionary<string, uint> funcTable = null, bool quiet = false)
         {
+            // scrape all elfs
+            /*var buildFolder = Path.GetDirectoryName(elfFile);
+            ELFContents mainELF = null;
+            List<ELFContents> Contents = new List<ELFContents>();
+            foreach(var f in Directory.GetFiles(buildFolder))
+            {
+                var cont = GetELFContents(f, funcTable, quiet);
+                if(f == elfFile)
+                    mainELF = cont;
+                else
+                    Contents.Add(cont);
+            }
+            if(mainELF == null)
+            {
+                throw new FileNotFoundException($"{elfFile} not found");
+            }
+
+
+            // find all elf files referenced by main file
+            List<ELFContents> UsedContents = new List<ELFContents>();
+            Queue<ELFContents> scan = new Queue<ELFContents>();
+            scan.Enqueue(mainELF);
+            while(scan.Count > 0)
+            {
+                var cont = scan.Dequeue();
+                UsedContents.Add(cont);
+                Contents.Remove(cont);
+                foreach(var func in cont.Functions)
+                {
+                    if (func.External)
+                    {
+                        // search for this function in another elf file
+                        foreach (var c in Contents)
+                        {
+                            if (c.Functions.Any(e => e.Name.Equals(func.Name)))
+                                scan.Enqueue(c);
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine($"Linking {UsedContents.Count} ELF files");*/
+
+            // link and build one file
+            var mainELF = GetELFContents(elfFile, funcTable, quiet);
+            List<byte> code = new List<byte>();
+            code.AddRange(mainELF.Code);
+            List<Symbols> Functions = mainELF.Functions;
+            List<Reloc> Relocs = mainELF.Relocs;
+            
+
+            // generate function dat
+            HSDStruct functionTable = new HSDStruct(8);
+            int funcCount = 0;
+
+            if (!quiet)
+                Console.WriteLine("Functions:");
+
+            foreach (var v in Functions)
+            {
+                if (!string.IsNullOrEmpty(v.Name) && v.SectionIndex > 0)
+                {
+                    if (funcTable == null)
+                    {
+                        var m = System.Text.RegularExpressions.Regex.Matches(v.Name, @"0[xX][0-9a-fA-F]+");
+                        if (m.Count > 0)
+                        {
+                            uint loc;
+                            if (uint.TryParse(m[0].Value.ToLower().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out loc))
+                            {
+                                Console.WriteLine("Overloading ->" + m[0].Value + " : " + v.Name);
+                                functionTable.Resize(8 * (funcCount + 1));
+                                functionTable.SetInt32(funcCount * 8, (int)loc);
+                                functionTable.SetInt32(funcCount * 8 + 4, (int)v.CodeOffset);
+                                funcCount++;
+                            }
+                        }
+                    }
+                    else
+                    if (funcTable.ContainsKey(v.Name.ToLower()))
+                    {
+                        functionTable.Resize(8 * (funcCount + 1));
+                        functionTable.SetInt32(funcCount * 8, (int)funcTable[v.Name.ToLower()]);
+                        functionTable.SetInt32(funcCount * 8 + 4, (int)v.CodeOffset);
+                        funcCount++;
+                    }
+
+                    if (!quiet)
+                        Console.WriteLine($"\t{v.Name,-25} | {v.CodeOffset.ToString("X"),-10}");
+                }
+            }
+            if (!quiet)
+                Console.WriteLine("Reloc Table:");
+
+            HSDStruct relocationTable = new HSDStruct(0);
+            int relocCount = 0;
+            foreach (var v in Relocs)
+            {
+                if (v.RelocOffset < code.Count)
+                {
+                    relocCount++;
+                    relocationTable.Resize(relocCount * 0x08);
+                    relocationTable.SetInt32(0x00 + (relocCount - 1) * 8, (int)v.RelocOffset);
+                    relocationTable.SetByte(0x00 + (relocCount - 1) * 8, (byte)v.Flag);
+                    relocationTable.SetInt32(0x04 + (relocCount - 1) * 8, (int)v.FunctionOffset);
+                    if (!quiet)
+                        Console.WriteLine("\t{0, -10} | {1, -10} | {2, -10}",
+                        v.RelocOffset.ToString("X"),
+                        v.FunctionOffset.ToString("X"),
+                        v.Flag);
+
+                    if (v.Flag != RelocType.R_PPC_ADDR16_HA && v.Flag != RelocType.R_PPC_ADDR16_LO && v.Flag != RelocType.R_PPC_ADDR32 && v.Flag != RelocType.R_PPC_REL32)
+                        throw new NotSupportedException("Relocation Flag Type " + v.Flag.ToString("X") + " not supported");
+
+                }
+            }
+
+
+            var function = new HSDAccessor() { _s = new HSDStruct(0x14) };
+
+            function._s.SetReferenceStruct(0x00, new HSDStruct(code.ToArray()));
+            function._s.SetReferenceStruct(0x04, relocationTable);
+            function._s.SetInt32(0x08, relocCount);
+            function._s.SetReferenceStruct(0x0C, functionTable);
+            function._s.SetInt32(0x10, funcCount);
+
+            return function;
+        }
+
+        /// <summary>
+        /// Scrapes data we want from ELF files
+        /// </summary>
+        /// <param name="elfFile"></param>
+        /// <param name="funcTable"></param>
+        /// <param name="quiet"></param>
+        /// <returns></returns>
+        private static ELFContents GetELFContents(string elfFile, Dictionary<string, uint> funcTable, bool quiet = false)
+        {
             // function table
             var fncTable = funcTable;
-            //if (fncTable == null)
-           //     fncTable = ftFunctionStrings;
+            ELFContents contents = new ELFContents();
 
             // parse elf file
             using (BinaryReaderExt r = new BinaryReaderExt(new FileStream(elfFile, FileMode.Open)))
@@ -125,15 +265,14 @@ namespace MexFF
                 // check .symtab to find all functions
                 // for size of code, consider all SHT_PROGBITS that aren't debug, eh_frame, or comment
                 // or for size of code just check symbol sections?
-
-                List<Reloc> Relocs = new List<Reloc>();
+                
                 foreach (var sec in sections)
                 {
                     if (!quiet)
                         Console.WriteLine(String.Format("{0, -30} |Type: {5, -15} |Offset: {3, -10} |Size: {4, -10} |Link: {1, -10} |Info: {2, -40}|",
                             r.ReadString((int)(sectionStrings.sh_offset + sec.sh_name), -1),
                             r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_link].sh_name), -1),
-                            r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1),
+                            sec.sh_info < sections.Length ? r.ReadString((int)(sectionStrings.sh_offset + sections[sec.sh_info].sh_name), -1) : "",
                             sec.sh_offset.ToString("X"),
                             sec.sh_size.ToString("X"),
                             sec.sh_type));
@@ -172,11 +311,12 @@ namespace MexFF
 
                             if (symbol.st_shndx >= 0)
                             {
-                                Relocs.Add(new Reloc()
+                                contents.Relocs.Add(new Reloc()
                                 {
                                     RelocOffset = sections[sec.sh_info].sh_offset + relocA[i].r_offset,
-                                    FunctionOffset = sections[symbol.st_shndx].sh_offset + relocA[i].r_addend,
-                                    Flag = relocA[i].R_TYP
+                                    FunctionOffset = symbol.st_value + sections[symbol.st_shndx].sh_offset + relocA[i].r_addend,
+                                    Flag = (RelocType)relocA[i].R_TYP,
+
                                 });
 
                                 if (!quiet)
@@ -204,11 +344,9 @@ namespace MexFF
                     }
                 }
 
-
                 var symbols = Array.Find(sections, e => r.ReadString((int)(sectionStrings.sh_offset + e.sh_name), -1) == ".symtab");
                 var symbolStrings = Array.Find(sections, e => r.ReadString((int)(sectionStrings.sh_offset + e.sh_name), -1) == ".strtab");
 
-                List<Symbols> Functions = new List<Symbols>();
                 uint codeStart = uint.MaxValue;
                 uint codeEnd = 0;
                 for (uint i = 0; i < symbols.sh_size / 0x10; i++)
@@ -229,164 +367,44 @@ namespace MexFF
 
                     var funcName = r.ReadString((int)(symbolStrings.sh_offset + sym.st_name), -1);
 
-                    if (sec.sh_offset == 0 && !(sym.st_name == 0 || sym.st_shndx < 0))
+                    var external = (sec.sh_offset == 0 && !(sym.st_name == 0 || sym.st_shndx < 0));
+
+                    if (external)
                     {
-                        throw new NotSupportedException($"External function reference to \"{funcName}\" in section \"{r.ReadString((int)(sectionStrings.sh_offset + sec.sh_name), -1)}\" not supported!");
+                        //throw new NotSupportedException($"External function reference to \"{funcName}\" in section \"{r.ReadString((int)(sectionStrings.sh_offset + sec.sh_name), -1)}\" not supported!");
                     }
                     if (!(sym.st_name == 0 || sym.st_shndx < 0))
                     {
-                        codeStart = Math.Min(sec.sh_offset, codeStart);
-                        codeEnd = Math.Max(sec.sh_size + sec.sh_offset, codeEnd);
+                        codeStart = Math.Min(sec.sh_offset + sym.st_value, codeStart);
+                        codeEnd = Math.Max(sec.sh_size + sec.sh_offset + sym.st_value, codeEnd);
                     }
 
-                    Functions.Add(new Symbols()
+                    Console.WriteLine((sec.sh_offset + sym.st_value).ToString("X") + " " + sym.st_size.ToString("X") + " " + funcName);
+
+                    contents.Functions.Add(new Symbols()
                     {
                         Name = funcName,
-                        CodeOffset = sec.sh_offset,
-                        SectionIndex = sym.st_shndx
+                        CodeOffset = sec.sh_offset + sym.st_value,
+                        SectionIndex = sym.st_shndx,
+                        External = external
                     });
                 }
 
-                // Building RDAT
+                contents.Code = r.GetSection(codeStart, (int)(codeEnd - codeStart));
 
-                byte[] code = r.GetSection(codeStart, (int)(codeEnd - codeStart));
-
-                HSDStruct functionTable = new HSDStruct(8);
-                int funcCount = 0;
-
-                if (!quiet)
-                    Console.WriteLine("Functions:");
-
-                foreach (var v in Functions)
+                foreach (var v in contents.Functions)
                 {
                     v.CodeOffset -= codeStart;
-                    if (!string.IsNullOrEmpty(v.Name) && v.SectionIndex > 0)
-                    {
-                        if(fncTable == null)
-                        {
-                            var m = System.Text.RegularExpressions.Regex.Matches(v.Name, @"0[xX][0-9a-fA-F]+");
-                            if(m.Count > 0)
-                            {
-                                uint loc;
-                                if (uint.TryParse(m[0].Value.ToLower().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out loc))
-                                {
-                                    Console.WriteLine("Overloading ->" + m[0].Value + " : " + v.Name);
-                                    functionTable.Resize(8 * (funcCount + 1));
-                                    functionTable.SetInt32(funcCount * 8, (int)loc);
-                                    functionTable.SetInt32(funcCount * 8 + 4, (int)v.CodeOffset);
-                                    funcCount++;
-                                }
-                            }
-                        }else
-                        if (fncTable.ContainsKey(v.Name.ToLower()))
-                        {
-                            functionTable.Resize(8 * (funcCount + 1));
-                            functionTable.SetInt32(funcCount * 8, (int)fncTable[v.Name.ToLower()]);
-                            functionTable.SetInt32(funcCount * 8 + 4, (int)v.CodeOffset);
-                            funcCount++;
-                        }
-
-                        if (!quiet)
-                            Console.WriteLine($"\t{v.Name,-25} | {v.CodeOffset.ToString("X"),-10}");
-                    }
                 }
-                if (!quiet)
-                    Console.WriteLine("Reloc Table:");
-
-                HSDStruct relocationTable = new HSDStruct(0);
-                int relocCount = 0;
-                foreach (var v in Relocs)
+                foreach (var v in contents.Relocs)
                 {
                     v.FunctionOffset -= codeStart;
                     v.RelocOffset -= codeStart;
-
-                    if (v.RelocOffset < code.Length)
-                    {
-                        relocCount++;
-                        relocationTable.Resize(relocCount * 0x08);
-                        relocationTable.SetInt32(0x00 + (relocCount - 1) * 8, (int)v.RelocOffset);
-                        relocationTable.SetByte(0x00 + (relocCount - 1) * 8, (byte)v.Flag);
-                        relocationTable.SetInt32(0x04 + (relocCount - 1) * 8, (int)v.FunctionOffset);
-                        if (!quiet)
-                            Console.WriteLine("\t{0, -10} | {1, -10} | {2, -10}",
-                            v.RelocOffset.ToString("X"),
-                            v.FunctionOffset.ToString("X"),
-                            v.Flag.ToString("X"));
-
-                        if (v.Flag != 0x06 && v.Flag != 0x04 && v.Flag != 0x01 && v.Flag != 0x0A)
-                            throw new NotSupportedException("Relocation Flag Type " + v.Flag.ToString("X") + " not supported");
-
-                    }
                 }
-
-
-                var function = new HSDAccessor() { _s = new HSDStruct(0x14) };
-
-                function._s.SetReferenceStruct(0x00, new HSDStruct(code));
-                function._s.SetReferenceStruct(0x04, relocationTable);
-                function._s.SetInt32(0x08, relocCount);
-                function._s.SetReferenceStruct(0x0C, functionTable);
-                function._s.SetInt32(0x10, funcCount);
-
-                return function;
             }
+            return contents;
         }
 
 
-        public struct ELFRelocA
-        {
-            public uint r_offset;
-            public uint r_info;
-            public uint r_addend;
-            public byte R_SYM => (byte)((r_info >> 8) & 0xFF);
-            public byte R_TYP => (byte)(r_info & 0xFF);
-        }
-
-        public struct ELFSymbol
-        {
-            public uint st_name;
-            public uint st_value;
-            public uint st_size;
-            public byte st_info;
-            public byte st_other;
-            public short st_shndx;
-        }
-
-        public struct ELFSection
-        {
-            public uint sh_name;
-            public SectionType sh_type;
-            public uint sh_flags;
-            public uint sh_addr;
-            public uint sh_offset;
-            public uint sh_size;
-            public uint sh_link;
-            public uint sh_info;
-            public uint sh_addralign;
-            public uint sh_entsize;
-        }
-
-        public enum SectionType
-        {
-            SHT_NULL = 0x00,
-            SHT_PROGBITS = 0x01,
-            SHT_SYMTAB = 0x02,
-            SHT_STRTAB = 0x03,
-            SHT_RELA = 0x04,
-            SHT_HASH = 0x05,
-            SHT_DYNAMIC = 0x06,
-            SHT_NOTE = 0x07,
-            SHT_NOBITS = 0x08,
-            SHT_REL = 0x09,
-            SHT_SHLIB = 0x0A,
-            SHT_DYNSYM = 0x0b,
-            SHT_INIT_ARRAY = 0x0E,
-            SHT_FINI_ARRAY = 0x0F,
-            SHT_PREINIT_ARRAY = 0x10,
-            SHT_GROUP = 0x11,
-            SHT_SYMTAB_SHNDX = 0x12,
-            SHT_NUM = 0x13,
-            SHT_LOOS = 0x60000000
-        }
     }
 }
