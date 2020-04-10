@@ -1,6 +1,7 @@
 ﻿using HSDRaw;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace MexFF
@@ -9,8 +10,9 @@ namespace MexFF
     {
         static void Main(string[] args)
         {
+            // Parse Args
             List<Tuple<int, string>> itemInputs = new List<Tuple<int, string>>();
-            string input = "";
+            List<string> inputs = new List<string>();
             string output = "";
             string symbolName = "ftFunction";
             string datFile = null;
@@ -18,13 +20,19 @@ namespace MexFF
             bool injectDat = false;
             bool quiet = false;
             bool yesOverwrite = false;
+            bool disableWarnings = false;
+            bool clean = false;
 
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "-i" && i + 1 < args.Length)
-                    input = args[i + 1];
+                {
+                    inputs.Add(args[i + 1]);
+                }
                 if (args[i] == "-ii" && i + 2 < args.Length)
+                {
                     itemInputs.Add(new Tuple<int, string>(int.Parse(args[i + 1]), args[i + 2]));
+                }
                 if (args[i] == "-o" && i + 1 < args.Length)
                     output = args[i + 1];
                 if (args[i] == "-s" && i + 1 < args.Length)
@@ -33,21 +41,27 @@ namespace MexFF
                     datFile = args[i + 1];
                 if (args[i] == "-ow")
                     yesOverwrite = true;
+                if (args[i] == "-w")
+                    disableWarnings = true;
+                if (args[i] == "-c")
+                    clean = true;
                 if (args[i] == "-t" && i + 1 < args.Length)
                     fightFuncTable = File.ReadAllLines(args[i + 1]);
                 if (args[i] == "-q")
                     quiet = true;
             }
 
-            if(!string.IsNullOrEmpty(input) && itemInputs.Count > 0)
+            // don't allow both item tables and normal tables
+            if(inputs.Count > 0 && itemInputs.Count > 0)
             {
                 Console.WriteLine("Only -i or -ii can be used at once, not both");
                 Console.ReadLine();
                 return;
             }
             
-            if (string.IsNullOrEmpty(input)
-                 && itemInputs.Count == 0
+            // print instruction and exit if no input
+            if ((inputs.Count == 0
+                 && itemInputs.Count == 0)
                 || args.Length == 0)
             {
                 PrintInstruction();
@@ -55,15 +69,18 @@ namespace MexFF
                 return;
             }
 
+            // check if we should inject dat
             if (!string.IsNullOrEmpty(datFile))
             {
                 output = datFile;
                 injectDat = true;
             }
 
+            // create output path if one isn't entered
             if (string.IsNullOrEmpty(output))
-                output = Path.Combine(Path.GetDirectoryName(input), Path.GetFileName(input).Replace(Path.GetExtension(input), ".dat"));
+                output = Path.Combine(Path.GetDirectoryName(inputs[0]), Path.GetFileName(inputs[0]).Replace(Path.GetExtension(inputs[0]), ".dat"));
             
+            // check if output already exists
             if (File.Exists(output) && !yesOverwrite)
             {
                 Console.WriteLine(output + " already exists, overwrite? (y/n)");
@@ -71,14 +88,11 @@ namespace MexFF
                     return;
             }
 
+            // compile functions
             HSDAccessor function = null;
 
             if (itemInputs.Count == 0)
-            {
-                //if (!CheckFileExists(input))
-                //    return;
-                function = CompileInput(input, fightFuncTable, quiet);
-            }
+                function = CompileInput(inputs.ToArray(), fightFuncTable, quiet, disableWarnings, clean);
             else
             {
                 function = new HSDAccessor() { _s = new HSDStruct(4) };
@@ -86,20 +100,18 @@ namespace MexFF
                 int count = 0;
                 foreach(var f in itemInputs)
                 {
-                    //if (!CheckFileExists(f.Item2))
-                    //    return;
-
                     count = Math.Max(count, f.Item1 + 1);
 
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
 
-                    var relocFunc = CompileInput(f.Item2, fightFuncTable, quiet);
+                    var relocFunc = CompileInput(new string[] { f.Item2 }, fightFuncTable, quiet, disableWarnings, clean);
                     function._s.SetReference(4 + 0x04 * f.Item1, relocFunc);
                 }
                 function._s.SetInt32(0x00, count);
             }
             
+            // create DAT file
             if (function != null)
             {
                 HSDRawFile f;
@@ -162,46 +174,61 @@ namespace MexFF
         /// <param name="fightFuncTable"></param>
         /// <param name="quiet"></param>
         /// <returns></returns>
-        private static HSDAccessor CompileInput(string input, string[] fightFuncTable, bool quiet)
+        private static HSDAccessor CompileInput(string[] inputs, string[] funcTable, bool quiet, bool disableWarnings, bool clean)
         {
-            var ext = Path.GetExtension(input).ToLower();
+            if (inputs.Length == 0)
+                return null;
 
-            Dictionary<string, uint> funcTable = null;
-            if(fightFuncTable != null)
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+                throw new Exception("Invalid platform " + Environment.OSVersion.Platform.ToString());
+
+            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC").Replace("opt/", "");
+
+            if (string.IsNullOrEmpty(devkitpath))
+                throw new FileNotFoundException("DEVKITPPC path not set");
+
+            var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc.exe");
+
+            if (!File.Exists(gccPath))
+                throw new FileNotFoundException("powerpc-eabi-gcc.exe not found");
+
+            var ext = Path.GetExtension(inputs[0]).ToLower();
+            List<RelocELF> elfs = new List<RelocELF>();
+
+            foreach(var input in inputs)
             {
-                funcTable = new Dictionary<string, uint>();
-                for (int i = 0; i < fightFuncTable.Length; i++)
-                    funcTable.Add(fightFuncTable[i], (uint)i);
-            }
-            else
-            {
-                Console.WriteLine("No table input, overloading enabled");
+                if (ext.Equals(".o"))
+                    elfs.Add(new RelocELF(File.ReadAllBytes(input)));
+
+                if (ext.Equals(".c"))
+                {
+                    Process p = new Process();
+
+                    p.StartInfo.UseShellExecute = false;
+                    p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
+                    p.StartInfo.RedirectStandardOutput = true;
+                    p.StartInfo.FileName = gccPath;
+                    p.StartInfo.Arguments = $"-MMD -MP -MF -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O2";
+                    p.Start();
+
+                    p.WaitForExit();
+
+                    var outputPath = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".o");
+
+                    if (p.ExitCode != 0 || !File.Exists(outputPath))
+                    {
+                        Console.WriteLine();
+                        throw new InvalidDataException($"{Path.GetFileName(input)} failed to compile, see output above for details");
+                    }
+                    
+                    elfs.Add(new RelocELF(File.ReadAllBytes(outputPath)));
+
+                    if (clean)
+                        File.Delete(outputPath);
+                }
             }
 
-            if (ext.Equals(".o"))
-            {
-                try
-                {
-                    return ELFTools.ELFToDAT(input, funcTable, quiet);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.ToString());
-                }
-            }
-
-            if (ext.Equals(".c"))
-            {
-                try
-                {
-                    return ELFTools.CToDAT(input, funcTable, quiet);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.ToString());
-                }
-            }
-            return null;
+            return RelocELF.GenerateFunctionDAT(elfs.ToArray(), funcTable, quiet);
         }
 
         /// <summary>
@@ -213,14 +240,16 @@ namespace MexFF
 
 Usage: mexff.exe (type) (options)
 Options:
-    -i (file(.c, .o(ELF))) : Input File (.c and .o (elf)) files are supported can have multiple inputs for 'it' type
-    -ii (item index) (file(.c, .o(ELF))) : Specific index used for building ft tables
-    -o (file.dat) : output dat file name
-    -d (file.dat) : dat file to inject symbol into (will not output a 'new' dat file)
-    -ow : overwrites files if it exists
-    -s (name) : symbol name (default is ftFunction for ft and itFunction for it)
-    -t (file.txt) : specify symbol table list
-    -q : Quiet Mode (Console doesn't print information)
+    -i (file.c)                          : Input File (.c and .o (elf)) files are supported can have multiple inputs for 'it' type
+    -ii (item index) (file(.c, .o(ELF))) : specify index used for building ftItem tables
+    -o (file.dat)                        : output dat filename
+    -d (file.dat)                        : dat file to inject symbol into
+    -ow                                  : overwrites files if it exists
+    -s (symbol)                          : symbol name (default is ftFunction for ft and itFunction for it)
+    -t (file.txt)                        : specify symbol table list
+    -q                                   : Quiet Mode (Console doesn't print information)
+    -w                                   : disable compilation warnings
+    -c                                   : clean build (deletes .o files after compilation)
 
 Ex: mexff.exe -i 'main.c' -o 'ftFunction.dat' -q
 Compile 'main.c' and outputs 'ftFunction.dat' in quiet mode
@@ -230,8 +259,7 @@ Creates function table with bomb.c with index 0 and arrow.c with index 3
 and injects it into PlMan.dat with the symbol name itFunction
 
 Note: in order to compile .c files you must 
-have DEVKITPPC installed with GameCube rules
-as well as have the environment path setup");
+have DEVKITPPC installed and have the environment path setup");
         }
     }
 }

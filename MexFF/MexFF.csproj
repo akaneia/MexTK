@@ -49,9 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ELFContents.cs" />
-    <Compile Include="ElfTools.cs" />
     <Compile Include="Enums.cs" />
-    <Compile Include="MakeFile.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RelocELF.cs" />
