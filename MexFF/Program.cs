@@ -29,7 +29,7 @@ namespace MexFF
                 {
                     for (int j = i + 1; j < args.Length; j++)
                         if (File.Exists(args[j]))
-                            inputs.Add(args[j]);
+                            inputs.Add(Path.GetFullPath(args[j]));
                         else
                             break;
                 }
