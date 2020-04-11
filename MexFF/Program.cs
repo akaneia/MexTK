@@ -25,9 +25,13 @@ namespace MexFF
 
             for (int i = 0; i < args.Length; i++)
             {
-                if (args[i] == "-i" && i + 1 < args.Length)
+                if (args[i] == "-i")
                 {
-                    inputs.Add(args[i + 1]);
+                    for (int j = i + 1; j < args.Length; j++)
+                        if (File.Exists(args[j]))
+                            inputs.Add(args[j]);
+                        else
+                            break;
                 }
                 if (args[i] == "-ii" && i + 2 < args.Length)
                 {

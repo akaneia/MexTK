@@ -1,6 +1,7 @@
 ﻿using HSDRaw;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -251,15 +252,40 @@ namespace MexFF
             Queue<SymbolData> symbolQueue = new Queue<SymbolData>();
 
             // Gather the root symbols needed for function table
-            for (int i = 0; i < functions.Length; i++)
+            if(functions == null)
             {
-                foreach(var elf in elfFiles)
+                if (!quiet)
+                    Console.WriteLine("No function table entered: defaulting to patching");
+
+                foreach (var elf in elfFiles)
                 {
-                    var sym = elf.SymbolSections.Find(e => e.Symbol.Equals(functions[i], StringComparison.InvariantCultureIgnoreCase));
-                    if (sym != null)
+                    foreach(var sym in elf.SymbolSections)
                     {
-                        data.Add(i, sym);
-                        symbolQueue.Enqueue(sym);
+                        var m = System.Text.RegularExpressions.Regex.Matches(sym.Symbol, @"0[xX][0-9a-fA-F]+");
+                        if (m.Count > 0)
+                        {
+                            uint loc;
+                            if (uint.TryParse(m[0].Value.ToLower().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out loc))
+                            {
+                                data.Add((int)loc, sym);
+                                symbolQueue.Enqueue(sym);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < functions.Length; i++)
+                {
+                    foreach (var elf in elfFiles)
+                    {
+                        var sym = elf.SymbolSections.Find(e => e.Symbol.Equals(functions[i], StringComparison.InvariantCultureIgnoreCase));
+                        if (sym != null)
+                        {
+                            data.Add(i, sym);
+                            symbolQueue.Enqueue(sym);
+                        }
                     }
                 }
             }
