@@ -186,7 +186,7 @@ namespace MexFF
             if (Environment.OSVersion.Platform != PlatformID.Win32NT)
                 throw new Exception("Invalid platform " + Environment.OSVersion.Platform.ToString());
 
-            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC").Replace("opt/", "C:/");
+            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC").Replace("/opt/", "C:/");
 
             if (string.IsNullOrEmpty(devkitpath))
                 throw new FileNotFoundException("DEVKITPPC path not set");
@@ -194,7 +194,7 @@ namespace MexFF
             var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc.exe");
 
             if (!File.Exists(gccPath))
-                devkitpath.Replace("C:/", "");
+                gccPath = gccPath.Replace("C:/", "");
 
             if (!File.Exists(gccPath))
                 throw new FileNotFoundException("powerpc-eabi-gcc.exe not found at " + gccPath);
