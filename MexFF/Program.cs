@@ -35,7 +35,7 @@ namespace MexFF
                 }
                 if (args[i] == "-ii" && i + 2 < args.Length)
                 {
-                    itemInputs.Add(new Tuple<int, string>(int.Parse(args[i + 1]), args[i + 2]));
+                    itemInputs.Add(new Tuple<int, string>(int.Parse(args[i + 1]), Path.GetFullPath(args[i + 2])));
                 }
                 if (args[i] == "-o" && i + 1 < args.Length)
                     output = args[i + 1];

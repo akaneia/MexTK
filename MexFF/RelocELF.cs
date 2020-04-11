@@ -425,6 +425,19 @@ namespace MexFF
                     relocationTable.SetByte(0x00 + relocCount * 8, (byte)reloc.Type);
                     relocationTable.SetInt32(0x04 + relocCount * 8, (int)(dataToOffset[reloc.Symbol] + reloc.AddEnd));
                     relocCount++;
+
+                    switch (reloc.Type)
+                    {
+                        // currently supported types
+                        case RelocType.R_PPC_ADDR32:
+                        case RelocType.R_PPC_ADDR16_LO:
+                        case RelocType.R_PPC_ADDR16_HA:
+                        case RelocType.R_PPC_REL24:
+                            break;
+                        default:
+                            Console.WriteLine("Warning: unsupported reloc type " + reloc.Type.ToString("X"));
+                            break;
+                    }
                 }
             }
 
