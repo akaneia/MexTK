@@ -14,10 +14,9 @@ namespace MexFF
             List<Tuple<int, string>> itemInputs = new List<Tuple<int, string>>();
             List<string> inputs = new List<string>();
             string output = "";
-            string symbolName = "ftFunction";
+            string symbolName = "";
             string datFile = null;
             string[] fightFuncTable = null;
-            bool injectDat = false;
             bool quiet = false;
             bool yesOverwrite = false;
             bool disableWarnings = false;
@@ -33,16 +32,16 @@ namespace MexFF
                         else
                             break;
                 }
-                if (args[i] == "-ii" && i + 2 < args.Length)
+                if (args[i] == "-item" && i + 2 < args.Length)
                 {
                     itemInputs.Add(new Tuple<int, string>(int.Parse(args[i + 1]), Path.GetFullPath(args[i + 2])));
                 }
                 if (args[i] == "-o" && i + 1 < args.Length)
-                    output = args[i + 1];
+                    output = Path.GetFullPath(args[i + 1]);
+                if (args[i] == "-dat" && i + 1 < args.Length)
+                    datFile = Path.GetFullPath(args[i + 1]);
                 if (args[i] == "-s" && i + 1 < args.Length)
                     symbolName = args[i + 1];
-                if (args[i] == "-d" && i + 1 < args.Length)
-                    datFile = args[i + 1];
                 if (args[i] == "-ow")
                     yesOverwrite = true;
                 if (args[i] == "-w")
@@ -73,11 +72,11 @@ namespace MexFF
                 return;
             }
 
-            // check if we should inject dat
-            if (!string.IsNullOrEmpty(datFile))
+            // check if symbol name is given
+            if (string.IsNullOrEmpty(symbolName))
             {
-                output = datFile;
-                injectDat = true;
+                symbolName = "ftFunction";
+                Console.WriteLine("No symbol name given, defaulting to \"ftFunction\"");
             }
 
             // create output path if one isn't entered
@@ -118,32 +117,22 @@ namespace MexFF
             // create DAT file
             if (function != null)
             {
-                HSDRawFile f;
-
-                if (injectDat)
-                    f = new HSDRawFile(output);
-                else
-                    f = new HSDRawFile();
-
-                // generate root
-                var root = new HSDRootNode();
-                root.Name = symbolName;
-                root.Data = function;
-
-                // if this symbol already exists in file, replace it
-                foreach (var ro in f.Roots)
-                {
-                    if (ro.Name.Equals(root.Name))
-                    {
-                        ro.Data = root.Data;
-                    }
-                }
-                // if symbol is not in file, then add it
-                if (f.Roots.FindIndex(e => e.Name == root.Name) == -1)
-                    f.Roots.Add(root);
-
                 // save new file
-                f.Save(output);
+                if(!string.IsNullOrEmpty(output))
+                {
+                    var f = new HSDRawFile();
+                    InjectDAT(f, symbolName, function);
+                    f.Save(output);
+                    Console.WriteLine("saving " + output + "...");
+                }
+
+                if (!string.IsNullOrEmpty(datFile))
+                {
+                    var f = new HSDRawFile(datFile);
+                    InjectDAT(f, symbolName, function);
+                    f.Save(datFile);
+                    Console.WriteLine("saving " + datFile + "...");
+                }
 
                 // We did it boys
                 Console.WriteLine();
@@ -151,8 +140,28 @@ namespace MexFF
             }
 
             Console.WriteLine();
-            Console.WriteLine("press enter to exit...");
-            Console.ReadLine();
+            Console.WriteLine("exiting...");
+            System.Threading.Thread.Sleep(1000);
+        }
+
+        private static void InjectDAT(HSDRawFile f, string symbolName, HSDAccessor function)
+        {
+            // generate root
+            var root = new HSDRootNode();
+            root.Name = symbolName;
+            root.Data = function;
+
+            // if this symbol already exists in file, replace it
+            foreach (var ro in f.Roots)
+            {
+                if (ro.Name.Equals(root.Name))
+                {
+                    ro.Data = root.Data;
+                }
+            }
+            // if symbol is not in file, then add it
+            if (f.Roots.FindIndex(e => e.Name == root.Name) == -1)
+                f.Roots.Add(root);
         }
 
         /// <summary>
@@ -243,30 +252,27 @@ namespace MexFF
         /// </summary>
         private static void PrintInstruction()
         {
-            Console.WriteLine(@"MexFF Compiler
+            Console.WriteLine(@"MexFF DAT Function Generator
 
 Usage: mexff.exe (type) (options)
 Options:
-    -i (file.c)                          : Input File (.c and .o (elf)) files are supported can have multiple inputs for 'it' type
-    -ii (item index) (file(.c, .o(ELF))) : specify index used for building ftItem tables
-    -o (file.dat)                        : output dat filename
-    -d (file.dat)                        : dat file to inject symbol into
-    -ow                                  : overwrites files if it exists
-    -s (symbol)                          : symbol name (default is ftFunction for ft and itFunction for it)
-    -t (file.txt)                        : specify symbol table list
-    -q                                   : Quiet Mode (Console doesn't print information)
-    -w                                   : disable compilation warnings
-    -c                                   : clean build (deletes .o files after compilation)
+    -i (file.c file2.c ...)               : Input File (.c and .o (elf)) files are supported can have multiple inputs for 'it' type
+    -item (item index) (file.c)           : specify index used for building ftItem tables
+    -o (file.dat)                         : output dat filename
+    -dat (file.dat)                       : dat file to inject symbol into
+    -ow                                   : automatically overwrite files if they exists
+    -s (symbol)                           : symbol name (default is ftFunction for ft and itFunction for it)
+    -t (file.txt)                         : specify symbol table list
+    -q                                    : Quiet Mode (Console doesn't print information)
+    -w                                    : disable compilation warnings
+    -c                                    : clean build (deletes .o files after compilation)
 
 Ex: mexff.exe -i 'main.c' -o 'ftFunction.dat' -q
 Compile 'main.c' and outputs 'ftFunction.dat' in quiet mode
 
-Ex: mexff.exe -ii 0 'bomb.c' -ii 3 'arrow.c' -d 'PlMan.dat' -s 'itFunction'
+Ex: mexff.exe -item 0 'bomb.c' -item 3 'arrow.c' -d 'PlMan.dat' -s 'itFunction'
 Creates function table with bomb.c with index 0 and arrow.c with index 3
-and injects it into PlMan.dat with the symbol name itFunction
-
-Note: in order to compile .c files you must 
-have DEVKITPPC installed and have the environment path setup");
+and injects it into PlMan.dat with the symbol name itFunction");
         }
     }
 }

@@ -193,13 +193,14 @@ namespace MexFF
                         foreach(var rel in relocations)
                             rel.Offset -= sym.st_value;
 
-                        SymbolSections[i].External = Sections[sym.st_shndx].sh_offset == 0;
-
                         if (sym.st_size == 0)
                         {
                             symbolData = section.Data;
                             //Console.WriteLine(section.Name + " " + sym.st_value + " " + sym.st_size + " " + section.Data.Length);
                         }
+                        else
+                            SymbolSections[i].External = Sections[sym.st_shndx].sh_offset == 0;
+
                     }
 
                     SymbolSections[i].Symbol = r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1);
