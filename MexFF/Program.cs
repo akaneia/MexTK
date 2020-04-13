@@ -224,12 +224,13 @@ namespace MexFF
                     p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
                     p.StartInfo.RedirectStandardOutput = true;
                     p.StartInfo.FileName = gccPath;
-                    p.StartInfo.Arguments = $"-MMD -MP -MF -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O2";
+                    p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O2";
                     p.Start();
 
                     p.WaitForExit();
 
                     var outputPath = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".o");
+                    var outputPathD = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".d");
 
                     if (p.ExitCode != 0 || !File.Exists(outputPath))
                     {
@@ -240,7 +241,11 @@ namespace MexFF
                     elfs.Add(new RelocELF(File.ReadAllBytes(outputPath)));
 
                     if (clean)
+                    {
                         File.Delete(outputPath);
+                        File.Delete(outputPathD);
+                    }
+                    
                 }
             }
 
