@@ -24,6 +24,22 @@ namespace MexFF
 
             for (int i = 0; i < args.Length; i++)
             {
+                if(args[i] == "-ftBuild" && i + 8 < args.Length)
+                {
+                    var fName = args[i + 1];
+                    var sym = args[i + 2];
+                    var dat = args[i + 3];
+                    var anmName = args[i + 4];
+                    var anm = args[i + 5];
+                    var rstName = args[i + 6];
+                    var rstsym = args[i + 7];
+                    var rst = args[i + 8];
+                    var build = FighterData.BuildFighterData(sym, rstsym, dat, anm, rst);
+                    build.Item1.Save(fName);
+                    File.WriteAllBytes(anmName, build.Item2);
+                    build.Item3.Save(rstName);
+                    return;
+                }
                 if (args[i] == "-i")
                 {
                     for (int j = i + 1; j < args.Length; j++)
