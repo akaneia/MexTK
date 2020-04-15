@@ -375,6 +375,11 @@ namespace MexFF
             {
                 foreach(var v in usedSymbols)
                 {
+                    // align
+                    if (code.Length % 4 != 0)
+                        code.Write(new byte[4 - (code.Length % 4)], 0, 4 - ((int)code.Length % 4));
+
+                    // write code
                     dataToOffset.Add(v, code.Length);
                     code.Write(v.Data, 0, v.Data.Length);
                 }

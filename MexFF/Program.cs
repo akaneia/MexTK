@@ -80,7 +80,7 @@ namespace MexFF
             }
 
             // create output path if one isn't entered
-            if (string.IsNullOrEmpty(output))
+            if (string.IsNullOrEmpty(output) && string.IsNullOrEmpty(datFile))
                 output = Path.Combine(Path.GetDirectoryName(inputs[0]), Path.GetFileName(inputs[0]).Replace(Path.GetExtension(inputs[0]), ".dat"));
             
             // check if output already exists
@@ -128,7 +128,7 @@ namespace MexFF
 
                 if (!string.IsNullOrEmpty(datFile))
                 {
-                    var f = new HSDRawFile(datFile);
+                    var f = File.Exists(datFile) ? new HSDRawFile(datFile) : new HSDRawFile();
                     InjectDAT(f, symbolName, function);
                     f.Save(datFile);
                     Console.WriteLine("saving " + datFile + "...");
