@@ -14,12 +14,12 @@ build:
 
 deploy:
   tag: LatestCommit
-  release: MexFF [Latest Commit]
+  release: MexTK [Latest Commit]
   description: 'This build is updated every time a commit is pushed to the master branch.\n\nMessage: $(APPVEYOR_REPO_COMMIT_MESSAGE)\n\n Timestamp: $(APPVEYOR_REPO_COMMIT_TIMESTAMP)'
   provider: GitHub
   auth_token:
     secure: xauaTCyRR7zXmIIk4uXxttIa2s/DKhiMVYbGn6BMy/suM2ow6gUe0GNrnS+d1Q/q
-  artifact: MexFFLatest.zip
+  artifact: MexTKLatest.zip
   draft: false
   prerelease: true
   force_update: true
@@ -27,7 +27,7 @@ deploy:
     branch: master
 
 after_build:
-  - 7z a "MexFFLatest.zip" "%APPVEYOR_BUILD_FOLDER%\MexFF\bin\Release\MexFF.exe"
-  - 7z a "MexFFLatest.zip" "%APPVEYOR_BUILD_FOLDER%\MexFF\bin\Release\MexFF.exe.config"
-  - 7z a "MexFFLatest.zip" "%APPVEYOR_BUILD_FOLDER%\MexFF\bin\Release\HSDRaw.dll"
-  - appveyor PushArtifact "MexFFLatest.zip"
+  - 7z a "MexTKLatest.zip" "%APPVEYOR_BUILD_FOLDER%\MexFF\bin\Release\MexTK.exe"
+  - 7z a "MexTKLatest.zip" "%APPVEYOR_BUILD_FOLDER%\MexFF\bin\Release\MexTK.exe.config"
+  - 7z a "MexTKLatest.zip" "%APPVEYOR_BUILD_FOLDER%\MexFF\bin\Release\HSDRaw.dll"
+  - appveyor PushArtifact "MexTKLatest.zip"
