@@ -53,6 +53,19 @@ namespace MexTK.FighterFunction
             public uint AddEnd;
             public SymbolData Symbol;
             public RelocType Type;
+            public uint SymbolIndex;
+
+            public override bool Equals(object obj)
+            {
+                if (obj is RelocData data)
+                {
+                    return Offset == data.Offset && 
+                        AddEnd == data.AddEnd && 
+                        Type == data.Type && 
+                        Symbol.SectionName == data.Symbol.SectionName;
+                }
+                return false;
+            }
         }
 
         public class SectionData
@@ -163,7 +176,8 @@ namespace MexTK.FighterFunction
                                 Offset = v.r_offset,
                                 AddEnd = v.r_addend,
                                 Symbol = SymbolSections[(int)v.R_SYM],
-                                Type = (RelocType)v.R_TYP
+                                Type = (RelocType)v.R_TYP,
+                                SymbolIndex = v.R_SYM
                             });
                         }
                     }
@@ -329,6 +343,7 @@ namespace MexTK.FighterFunction
                     {
                         if (s.Symbol.Equals(sym.Symbol))
                         {
+                            // remap this symbol and mark as duplicate
                             SymbolRemapper.Add(sym, s);
                             duplicate = true;
                             break;
@@ -342,7 +357,31 @@ namespace MexTK.FighterFunction
                 // add symbols
                 usedSymbols.Add(sym);
 
-                foreach(var v in sym.Relocations)
+
+                // gather relocations from other symbols if necessary
+                // transfer relocations??
+                // if these are the same symbol and there is supposed to be a relocation, then port it?
+                foreach(var el in elfFiles)
+                {
+                    var symcols = el.SymbolSections.Where(e=>
+                        e != sym && 
+                        e.SectionName == sym.SectionName &&
+                        e.Data.SequenceEqual(sym.Data));
+                    
+                    foreach(var s in symcols)
+                    {
+                        foreach (var sReloc in s.Relocations)
+                        {
+                            var exists = sym.Relocations.Exists(e => e.Equals(sReloc));
+
+                            if (!exists)
+                                sym.Relocations.Add(sReloc);
+                        }
+                    }
+                }
+
+                // add relocation sections to queue
+                foreach (var v in sym.Relocations)
                 {
                     if (!usedSymbols.Contains(v.Symbol) && !symbolQueue.Contains(v.Symbol))
                         symbolQueue.Enqueue(v.Symbol);
@@ -353,7 +392,8 @@ namespace MexTK.FighterFunction
             // remap relocation table
             foreach (var v in usedSymbols)
             {
-                for(int i = 0; i < v.Relocations.Count; i++)
+                System.Diagnostics.Debug.WriteLine(v.SectionName + " " + v.Relocations.Count);
+                for (int i = 0; i < v.Relocations.Count; i++)
                 {
                     if (SymbolRemapper.ContainsKey(v.Relocations[i].Symbol))
                         v.Relocations[i].Symbol = SymbolRemapper[v.Relocations[i].Symbol];

@@ -17,6 +17,11 @@
         public byte st_info;
         public byte st_other;
         public short st_shndx;
+
+        public override string ToString()
+        {
+            return $"{st_name} {st_value} {st_size} {(SymbolBinding)(st_info >> 4)} {(SymbolType)(st_info & 0xF)} {st_other} {st_shndx}";
+        }
     }
 
     public struct ELFSection
@@ -31,6 +36,11 @@
         public uint sh_info;
         public uint sh_addralign;
         public uint sh_entsize;
+
+        public override string ToString()
+        {
+            return $"{sh_type} {sh_flags} {sh_link} {sh_addr} {sh_info}";
+        }
     }
 
 }
