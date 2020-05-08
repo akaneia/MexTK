@@ -5,7 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 
-namespace MexFF
+namespace MexTK.FighterFunction
 {
     public class RelocELF
     {

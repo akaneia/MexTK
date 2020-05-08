@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{25977C46-EF89-451F-9987-64C4184B9F50}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>MexFF</RootNamespace>
-    <AssemblyName>MexFF</AssemblyName>
+    <RootNamespace>MexTK</RootNamespace>
+    <AssemblyName>MexTK</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -50,12 +50,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Enums.cs" />
-    <Compile Include="FighterData.cs" />
+    <Compile Include="Commands\CmdFighterData.cs" />
+    <Compile Include="Commands\CmdFighterFunction.cs" />
+    <Compile Include="Commands\CmdPortFigatree.cs" />
+    <Compile Include="Commands\ICommand.cs" />
+    <Compile Include="FighterFunction\Enums.cs" />
+    <Compile Include="Tools\FighterData.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RelocELF.cs" />
-    <Compile Include="Structs.cs" />
+    <Compile Include="FighterFunction\RelocELF.cs" />
+    <Compile Include="FighterFunction\Structs.cs" />
+    <Compile Include="Tools\DatTools.cs" />
+    <Compile Include="Tools\FileTools.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

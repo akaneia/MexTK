@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace MexFF
+namespace MexTK
 {
     public class FighterData
     {

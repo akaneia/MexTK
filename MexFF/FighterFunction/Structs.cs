@@ -1,4 +1,4 @@
-﻿namespace MexFF
+﻿namespace MexTK.FighterFunction
 {
     public struct ELFRelocA
     {
