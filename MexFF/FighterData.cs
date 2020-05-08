@@ -2,8 +2,6 @@
 using HSDRaw.Melee.Pl;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -49,11 +47,11 @@ namespace MexFF
                     case "attributes_unique.dat":
                         data.Attributes2 = ImportDAT(file);
                         break;
-                    case "bone_table.dat":
-                        data.FighterBoneTable = new SBM_FighterBoneIDs() { _s = ImportDAT(file)._s };
+                    case "bone_table.ini":
+                        data.FighterBoneTable = new SBM_FighterBoneIDs() { _s = ImportINI(file)._s };
                         break;
-                    case "ledge_grabbox.dat":
-                        data.LedgeGrabBox = new SBM_LedgeGrabBox() { _s = ImportDAT(file)._s };
+                    case "ledge_grabbox.ini":
+                        data.LedgeGrabBox = new SBM_LedgeGrabBox() { _s = ImportINI(file)._s };
                         break;
                     case "model_animation_parts.dat":
                         data.ModelPartAnimations = new SBM_ModelPartTable() { _s = ImportDAT(file)._s };
@@ -127,12 +125,12 @@ namespace MexFF
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            var directoryAnim = Path.Combine(Path.GetDirectoryName(ajPath), Path.GetFileNameWithoutExtension(ajPath) + "\\");
-            if (!Directory.Exists(directoryAnim))
+            var directoryAnim = string.IsNullOrEmpty(ajPath) ? "" : Path.Combine(Path.GetDirectoryName(ajPath), Path.GetFileNameWithoutExtension(ajPath) + "\\");
+            if (!string.IsNullOrEmpty(ajPath) && !Directory.Exists(directoryAnim))
                 Directory.CreateDirectory(directoryAnim);
 
-            var directoryRst = Path.Combine(Path.GetDirectoryName(rstPath), Path.GetFileNameWithoutExtension(rstPath) + "\\");
-            if (!Directory.Exists(directoryRst))
+            var directoryRst = string.IsNullOrEmpty(rstPath) ? "" : Path.Combine(Path.GetDirectoryName(rstPath), Path.GetFileNameWithoutExtension(rstPath) + "\\");
+            if (!string.IsNullOrEmpty(rstPath) && !Directory.Exists(directoryRst))
                 Directory.CreateDirectory(directoryRst);
 
             Console.WriteLine($"Extracting {Path.GetFileName(fighterDataPath)} to {Path.GetFileNameWithoutExtension(fighterDataPath) + "\\"}...");
@@ -167,13 +165,15 @@ namespace MexFF
 
                 // export animations
 
-                ExportAnims(directoryAnim, File.ReadAllBytes(ajPath), data.SubActionTable.Subactions);
-                ExportAnims(directoryRst, new HSDRawFile(rstPath).Roots[0].Data._s.GetData(), data.WinSubAction.Subactions);
+                if(!string.IsNullOrEmpty(ajPath))
+                    ExportAnims(directoryAnim, File.ReadAllBytes(ajPath), data.SubActionTable.Subactions);
+                if (!string.IsNullOrEmpty(rstPath))
+                    ExportAnims(directoryRst, new HSDRawFile(rstPath).Roots[0].Data._s.GetData(), data.WinSubAction.Subactions);
 
                 // Extract Subaction Table and Animations
 
                 ExportDAT(Path.Combine(directory, "subactions.dat"), data.SubActionTable);
-                ExportDAT(Path.Combine(directory, "subactions_dyanmic.dat"), data.SubActionDynamicBehaviors);
+                ExportDAT(Path.Combine(directory, "subactions_dynamic.dat"), data.SubActionDynamicBehaviors);
                 ExportDAT(Path.Combine(directory, "subactions_result.dat"), data.WinSubAction);
                 ExportDAT(Path.Combine(directory, "subactions_result_dynamic.dat"), data.WinSubActionDynamicBehaviors);
 
@@ -282,7 +282,7 @@ namespace MexFF
         /// <summary>
         /// 
         /// </summary>
-        private static void ExportINI(string filePath, HSDAccessor acc)
+        public static void ExportINI(string filePath, HSDAccessor acc)
         {
             var type = acc.GetType();
 
@@ -368,6 +368,21 @@ namespace MexFF
         {
             switch (type)
             {
+                case "Byte":
+                    acc._s.SetByte(loc, byte.Parse(value));
+                    break;
+                case "SByte":
+                    acc._s.SetByte(loc, (byte)sbyte.Parse(value));
+                    break;
+                case "UInt16":
+                    acc._s.SetInt16(loc, (short)ushort.Parse(value));
+                    break;
+                case "Int16":
+                    acc._s.SetInt16(loc, short.Parse(value));
+                    break;
+                case "UInt32":
+                    acc._s.SetInt32(loc, (int)uint.Parse(value));
+                    break;
                 case "Int32":
                     acc._s.SetInt32(loc, int.Parse(value));
                     break;
