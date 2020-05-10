@@ -50,6 +50,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Commands\CmdAddSymbol.cs" />
     <Compile Include="Commands\CmdFighterDataBuild.cs" />
     <Compile Include="Commands\CmdFighterDataExtract.cs" />
     <Compile Include="Commands\CmdFighterFunction.cs" />

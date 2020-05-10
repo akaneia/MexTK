@@ -11,7 +11,8 @@ namespace MexTK
             new CmdFighterFunction(),
             new CmdFighterDataBuild(),
             new CmdPortFigatree(),
-            new CmdFighterDataExtract()
+            new CmdFighterDataExtract(),
+            new CmdAddSymbol()
         };
 
         static void Main(string[] args)
