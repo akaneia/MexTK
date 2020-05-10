@@ -6,7 +6,7 @@ namespace MexTK.Commands
     /// <summary>
     /// 
     /// </summary>
-    public class CmdFighterData : ICommand
+    public class CmdFighterDataBuild : ICommand
     {
         /// <summary>
         /// 
@@ -14,7 +14,7 @@ namespace MexTK.Commands
         /// <returns></returns>
         public string Name()
         {
-            return "Fighter Data";
+            return "Fighter Data Generate";
         }
 
         /// <summary>
@@ -23,7 +23,7 @@ namespace MexTK.Commands
         /// <returns></returns>
         public string ID()
         {
-            return "-ft";
+            return "-ftBuild";
         }
 
         /// <summary>

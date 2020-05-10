@@ -9,13 +9,14 @@ namespace MexTK
         private static List<ICommand> Commands = new List<ICommand>()
         {
             new CmdFighterFunction(),
-            new CmdFighterData(),
-            new CmdPortFigatree()
+            new CmdFighterDataBuild(),
+            new CmdPortFigatree(),
+            new CmdFighterDataExtract()
         };
 
         static void Main(string[] args)
         {
-            if(args.Length > 0)
+            if (args.Length > 0)
             {
                 foreach(var cmd in Commands)
                 {

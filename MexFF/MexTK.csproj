@@ -50,7 +50,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Commands\CmdFighterData.cs" />
+    <Compile Include="Commands\CmdFighterDataBuild.cs" />
+    <Compile Include="Commands\CmdFighterDataExtract.cs" />
     <Compile Include="Commands\CmdFighterFunction.cs" />
     <Compile Include="Commands\CmdPortFigatree.cs" />
     <Compile Include="Commands\ICommand.cs" />
