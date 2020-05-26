@@ -55,6 +55,7 @@
     <Compile Include="Commands\CmdFighterDataExtract.cs" />
     <Compile Include="Commands\CmdFighterFunction.cs" />
     <Compile Include="Commands\CmdPortFigatree.cs" />
+    <Compile Include="Commands\CmdTrimDAT.cs" />
     <Compile Include="Commands\ICommand.cs" />
     <Compile Include="FighterFunction\Enums.cs" />
     <Compile Include="Tools\FighterData.cs" />

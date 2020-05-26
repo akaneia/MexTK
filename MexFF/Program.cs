@@ -10,9 +10,10 @@ namespace MexTK
         {
             new CmdFighterFunction(),
             new CmdFighterDataBuild(),
-            new CmdPortFigatree(),
             new CmdFighterDataExtract(),
-            new CmdAddSymbol()
+            new CmdPortFigatree(),
+            new CmdAddSymbol(),
+            new CmdTrimDAT()
         };
 
         static void Main(string[] args)
@@ -32,10 +33,10 @@ namespace MexTK
             else
             {
                 PrintInstruction();
+                Console.WriteLine();
+                Console.WriteLine("exiting...");
+                System.Threading.Thread.Sleep(1000);
             }
-            Console.WriteLine();
-            Console.WriteLine("exiting...");
-            System.Threading.Thread.Sleep(1000);
         }
         
 

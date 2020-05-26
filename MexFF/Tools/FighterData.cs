@@ -198,13 +198,13 @@ namespace MexTK
                     if (s.Name.Contains("IntroR"))
                         continue;
 
-                    s.Name = s.Name.Replace("Fox", "Wolf");
+                    s.Name = s.Name.Replace("Mario", "Lip");
 
                     var anim = new byte[s.AnimationSize];
                     Array.Copy(animData, s.AnimationOffset, anim, 0, anim.Length);
                     
                     var af = new HSDRawFile(anim);
-                    af.Roots[0].Name = af.Roots[0].Name.Replace("Fox", "Wolf");
+                    af.Roots[0].Name = af.Roots[0].Name.Replace("Mario", "Lip");
                     af.Save(Path.Combine(directory, s.Name + ".dat"));
                     
                     exported.Add(s.AnimationOffset);
