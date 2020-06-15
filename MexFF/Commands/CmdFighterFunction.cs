@@ -42,6 +42,7 @@ Options:
     -dat (file.dat)                       : dat file to inject symbol into
     -s (symbol)                           : symbol name (default is ftFunction for ft and itFunction for it)
     -t (file.txt)                         : specify symbol table list
+    -op (1-3)                             : optimization level
     -ow                                   : automatically overwrite files if they exists
     -w                                    : disable compilation warnings
     -q                                    : Quiet Mode (Console doesn't print information)
@@ -73,6 +74,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
             bool yesOverwrite = false;
             bool disableWarnings = false;
             bool clean = false;
+            int opLevel = 2;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -84,24 +86,34 @@ and injects it into PlMan.dat with the symbol name itFunction";
                         else
                             break;
                 }
+
                 if (args[i] == "-item" && i + 2 < args.Length)
-                {
                     itemInputs.Add(new Tuple<int, string>(int.Parse(args[i + 1]), Path.GetFullPath(args[i + 2])));
-                }
+
+                if (args[i] == "-op" && i + 1 < args.Length)
+                    opLevel = int.Parse(args[i + 1]);
+
                 if (args[i] == "-o" && i + 1 < args.Length)
                     output = Path.GetFullPath(args[i + 1]);
+
                 if (args[i] == "-dat" && i + 1 < args.Length)
                     datFile = Path.GetFullPath(args[i + 1]);
+
                 if (args[i] == "-s" && i + 1 < args.Length)
                     symbolName = args[i + 1];
+
                 if (args[i] == "-ow")
                     yesOverwrite = true;
+
                 if (args[i] == "-w")
                     disableWarnings = true;
+
                 if (args[i] == "-c")
                     clean = true;
+
                 if (args[i] == "-t" && i + 1 < args.Length)
                     fightFuncTable = File.ReadAllLines(args[i + 1]);
+
                 if (args[i] == "-q")
                     quiet = true;
             }
@@ -144,7 +156,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
             HSDAccessor function = null;
 
             if (itemInputs.Count == 0)
-                function = CompileInput(inputs.ToArray(), fightFuncTable, quiet, disableWarnings, clean);
+                function = CompileInput(inputs.ToArray(), fightFuncTable, quiet, disableWarnings, clean, opLevel);
             else
             {
                 function = new HSDAccessor() { _s = new HSDStruct(4) };
@@ -157,7 +169,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
 
-                    var relocFunc = CompileInput(new string[] { f.Item2 }, fightFuncTable, quiet, disableWarnings, clean);
+                    var relocFunc = CompileInput(new string[] { f.Item2 }, fightFuncTable, quiet, disableWarnings, clean, opLevel);
                     function._s.SetReference(4 + 0x04 * f.Item1, relocFunc);
                 }
                 function._s.SetInt32(0x00, count);
@@ -202,7 +214,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <param name="fightFuncTable"></param>
         /// <param name="quiet"></param>
         /// <returns></returns>
-        private static HSDAccessor CompileInput(string[] inputs, string[] funcTable, bool quiet, bool disableWarnings, bool clean)
+        private static HSDAccessor CompileInput(string[] inputs, string[] funcTable, bool quiet, bool disableWarnings, bool clean, int optimizationLevel = 2)
         {
             if (inputs.Length == 0)
                 return null;
@@ -239,7 +251,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
                     p.StartInfo.RedirectStandardOutput = true;
                     p.StartInfo.FileName = gccPath;
-                    p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O2";
+                    p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O{optimizationLevel}";
                     p.Start();
 
                     p.WaitForExit();

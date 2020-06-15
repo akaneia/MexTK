@@ -29,7 +29,7 @@ namespace MexTK.Commands
         /// <returns></returns>
         public string Help()
         {
-            return @"MexTK.exe -ftExtract (filename) (main folder) (anim filename) (anim folder) (result anim filename) (result anim folder)";
+            return @"MexTK.exe -ftExtract (filename) (anim filename) (result anim filename)";
         }
 
         /// <summary>

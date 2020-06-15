@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using MexTK.Commands;
+using MexTK.Commands.Animation;
 
 namespace MexTK
 {
@@ -13,14 +14,16 @@ namespace MexTK
             new CmdFighterDataExtract(),
             new CmdPortFigatree(),
             new CmdAddSymbol(),
-            new CmdTrimDAT()
+            new CmdTrimDAT(),
+            new CmdRetargetAnimation(),
+            new CmdOptimizeFigatree(),
         };
 
         static void Main(string[] args)
         {
             if (args.Length > 0)
             {
-                foreach(var cmd in Commands)
+                foreach (var cmd in Commands)
                 {
                     if (args[0].Equals(cmd.ID()))
                     {
