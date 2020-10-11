@@ -201,26 +201,34 @@ namespace MexTK.FighterFunction
                         SymbolSections[i].SectionName = section.Name;
 
                         // If size of section is 0, get all data?
-                        if (sym.st_size == 0)
-                            symbolData = section.Data;
+                        if (Sections[sym.st_shndx].sh_type == SectionType.SHT_NOBITS)
+                        {
+                            symbolData = new byte[section.Data.Length];
+                            //Console.WriteLine($"{section.Name} {(Sections[sym.st_shndx].sh_offset + sym.st_value).ToString("X")} {sym.st_size} {sym.st_value} {symbolData.Length}");
+                        }
                         else
-                            Array.Copy(section.Data, sym.st_value, symbolData, 0, sym.st_size);
-                        
-                        // TODO: when to get relocations?
-                        relocations = section.Relocations.Where(
-                            e => e.Offset >= sym.st_value && 
-                            (e.Offset < sym.st_value + symbolData.Length)
-                        ).ToList();
-                        
-                        // make relative
-                        foreach(var rel in relocations)
-                            rel.Offset -= sym.st_value;
+                        {
+                            if (sym.st_size == 0)
+                                symbolData = section.Data;
+                            else
+                                Array.Copy(section.Data, sym.st_value, symbolData, 0, sym.st_size);
+
+                            // TODO: when to get relocations?
+                            relocations = section.Relocations.Where(
+                                e => e.Offset >= sym.st_value &&
+                                (e.Offset < sym.st_value + symbolData.Length)
+                            ).ToList();
+
+                            // make relative
+                            foreach (var rel in relocations)
+                                rel.Offset -= sym.st_value;
+                        }
 
                         // if the offset is 0 the function is usually in another file
                         SymbolSections[i].External = Sections[sym.st_shndx].sh_offset == 0;
 
                         //Console.WriteLine(section.Name + " " + r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1) 
-                        //    + " " + Sections[sym.st_shndx].sh_info + " " + Sections[sym.st_shndx].sh_addr + " " + normalrelocations.Count + " " + relocations.Count);
+                       //     + " " + Sections[sym.st_shndx].sh_info + " " + Sections[sym.st_shndx].sh_addr + " " + relocations.Count);
                     }
 
                     SymbolSections[i].Symbol = r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1);
