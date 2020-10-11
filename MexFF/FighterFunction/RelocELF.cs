@@ -267,7 +267,7 @@ namespace MexTK.FighterFunction
         /// 
         /// </summary>
         /// <returns></returns>
-        public static HSDAccessor GenerateFunctionDAT(RelocELF[] elfFiles, string[] functions, bool quiet = false)
+        public static HSDAccessor GenerateFunctionDAT(RelocELF[] elfFiles, LinkFile linkFiles, string[] functions, bool quiet = false)
         {
             // Grab Symbol Table Info
             Dictionary<int, SymbolData> data = new Dictionary<int, SymbolData>();
@@ -329,18 +329,25 @@ namespace MexTK.FighterFunction
                 // resolve external and remap
                 if (sym.External)
                 {
+                    bool found = false;
+
                     foreach (var elf in elfFiles)
                     {
                         var externalSymbol = elf.SymbolSections.Where(e => e.Symbol.Equals(sym.Symbol) && !e.External).ToArray();
 
                         if (externalSymbol.Length > 0)
                         {
+                            found = true;
                             SymbolRemapper.Add(sym, externalSymbol[0]);
                             sym = externalSymbol[0];
                             break;
                         }
                     }
-                    if (sym == orgsym)
+
+                    if (linkFiles.ContainsSymbol(sym.Symbol))
+                        found = true;
+
+                    if (!found)
                         throw new Exception("Could not resolve external symbol " + sym.Symbol + " - " + sym.SectionName);
                 }
 
@@ -408,7 +415,7 @@ namespace MexTK.FighterFunction
                     if (SymbolRemapper.ContainsKey(v.Relocations[i].Symbol))
                         v.Relocations[i].Symbol = SymbolRemapper[v.Relocations[i].Symbol];
 
-                    if (!usedSymbols.Contains(v.Relocations[i].Symbol))
+                    if (!usedSymbols.Contains(v.Relocations[i].Symbol) && !linkFiles.ContainsSymbol(v.Relocations[i].Symbol.Symbol))
                         throw new Exception("Missing Symbol " + v.Relocations[i].Symbol.Symbol + " " + v.Symbol);
                 }
 
@@ -416,12 +423,10 @@ namespace MexTK.FighterFunction
 
 
             // Generate Function DAT
-
             var function = new HSDAccessor() { _s = new HSDStruct(0x14) };
 
 
             // Generate code section
-
             Dictionary<SymbolData, long> dataToOffset = new Dictionary<SymbolData, long>();
             byte[] codedata;
             using (MemoryStream code = new MemoryStream())
@@ -433,14 +438,21 @@ namespace MexTK.FighterFunction
                         code.Write(new byte[4 - (code.Length % 4)], 0, 4 - ((int)code.Length % 4));
 
                     // write code
-                    dataToOffset.Add(v, code.Length);
-                    code.Write(v.Data, 0, v.Data.Length);
+                    if(v.Data.Length == 0 && linkFiles.TryGetSymbolAddress(v.Symbol, out uint addr))
+                    {
+                        dataToOffset.Add(v, addr);
+                    }
+                    else
+                    {
+                        dataToOffset.Add(v, code.Length);
+                        code.Write(v.Data, 0, v.Data.Length);
+                    }
                 }
                 codedata = code.ToArray();
             }
 
-            // Generate Function Table
 
+            // generate function table
             HSDStruct functionTable = new HSDStruct(8);
             var funcCount = 0;
             foreach(var v in data)
@@ -451,20 +463,25 @@ namespace MexTK.FighterFunction
                 funcCount++;
             }
 
+
+            // set function table
             function._s.SetReferenceStruct(0x0C, functionTable);
             function._s.SetInt32(0x10, funcCount);
 
-            // Generate Relocation Table
 
+            // Generate Relocation Table
             HSDStruct relocationTable = new HSDStruct(0);
             var relocCount = 0;
             foreach(var v in usedSymbols)
             {
-                if(v.Data.Length == 0)
-                {
-                    throw new Exception($"Error: {v.Symbol} length is {v.Data.Length.ToString("X")}");
-                }
+                // check data length
+                if (v.Data.Length == 0)
+                    if (linkFiles.ContainsSymbol(v.Symbol))
+                        continue;
+                    else
+                        throw new Exception($"Error: {v.Symbol} length is {v.Data.Length.ToString("X")}");
 
+                // print debug info
                 if (!quiet)
                 {
                     Console.WriteLine($"{v.Symbol,-30} {v.SectionName, -50} Offset: {dataToOffset[v].ToString("X8"), -16} Length: {v.Data.Length.ToString("X8")}");
@@ -472,37 +489,21 @@ namespace MexTK.FighterFunction
                         Console.WriteLine($"\t {"Section:",-50} {"RelocType:",-20} {"FuncOffset:", -16} {"SectionOffset:"}");
                 }
                 
+                // process and create relocation table
                 foreach (var reloc in v.Relocations)
                 {
                     if (!quiet)
                         Console.WriteLine($"\t {reloc.Symbol.SectionName, -50} {reloc.Type, -20} {reloc.Offset.ToString("X8"), -16} {reloc.AddEnd.ToString("X8")}");
-
-                    bool addEntry = true;
+                    
+                    // gather code positions
                     var codeOffset = (int)(dataToOffset[v] + reloc.Offset);
                     var toFunctionOffset = (int)(dataToOffset[reloc.Symbol] + reloc.AddEnd);
-                    var rel = toFunctionOffset - codeOffset;
 
+                    // currently supported types check
                     switch (reloc.Type)
                     {
-                        // currently supported types
                         case RelocType.R_PPC_REL32:
-                            addEntry = false;
-                            codedata[codeOffset] = (byte)((rel >> 24) & 0xFF);
-                            codedata[codeOffset + 1] = (byte)((rel >> 16) & 0xFF);
-                            codedata[codeOffset + 2] = (byte)((rel >> 8) & 0xFF);
-                            codedata[codeOffset + 3] = (byte)((rel) & 0xFF);
-                            break;
                         case RelocType.R_PPC_REL24:
-                            addEntry = false;
-
-                            var cur = ((codedata[codeOffset] & 0xFF) << 24) | ((codedata[codeOffset + 1] & 0xFF) << 16) | ((codedata[codeOffset + 2] & 0xFF) << 8) | ((codedata[codeOffset + 3] & 0xFF));
-                            rel =  cur | (rel & 0x03FFFFFC);
-
-                            codedata[codeOffset] = (byte)((rel >> 24) & 0xFF);
-                            codedata[codeOffset + 1] = (byte)((rel >> 16) & 0xFF);
-                            codedata[codeOffset + 2] = (byte)((rel >> 8) & 0xFF);
-                            codedata[codeOffset + 3] = (byte)((rel) & 0xFF);
-                            break;
                         case RelocType.R_PPC_ADDR32:
                         case RelocType.R_PPC_ADDR16_LO:
                         case RelocType.R_PPC_ADDR16_HA:
@@ -513,7 +514,41 @@ namespace MexTK.FighterFunction
                             break;
                     }
 
-                    if (addEntry)
+                    bool addEntry = true;
+
+                    // only apply optimization if not external
+                    if (!reloc.Symbol.External)
+                    {
+                        // calculate relative offset
+                        var rel = toFunctionOffset - codeOffset;
+
+                        // apply relocation automatically if possible
+                        switch (reloc.Type)
+                        {
+                            case RelocType.R_PPC_REL32:
+                                codedata[codeOffset] = (byte)((rel >> 24) & 0xFF);
+                                codedata[codeOffset + 1] = (byte)((rel >> 16) & 0xFF);
+                                codedata[codeOffset + 2] = (byte)((rel >> 8) & 0xFF);
+                                codedata[codeOffset + 3] = (byte)((rel) & 0xFF);
+
+                                addEntry = false;
+                                break;
+                            case RelocType.R_PPC_REL24:
+                                var cur = ((codedata[codeOffset] & 0xFF) << 24) | ((codedata[codeOffset + 1] & 0xFF) << 16) | ((codedata[codeOffset + 2] & 0xFF) << 8) | ((codedata[codeOffset + 3] & 0xFF));
+                                rel = cur | (rel & 0x03FFFFFC);
+
+                                codedata[codeOffset] = (byte)((rel >> 24) & 0xFF);
+                                codedata[codeOffset + 1] = (byte)((rel >> 16) & 0xFF);
+                                codedata[codeOffset + 2] = (byte)((rel >> 8) & 0xFF);
+                                codedata[codeOffset + 3] = (byte)((rel) & 0xFF);
+
+                                addEntry = false;
+                                break;
+                        }
+                    }
+
+                    // add relocation to table
+                    if(addEntry)
                     {
                         relocationTable.Resize((relocCount + 1) * 0x08);
                         relocationTable.SetInt32(0x00 + relocCount * 8, codeOffset);

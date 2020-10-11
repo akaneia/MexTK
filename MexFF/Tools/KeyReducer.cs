@@ -122,9 +122,9 @@ namespace MexTK.Tools
             // check constant key track{
             {
                 bool keyTrack = true;
-                for(int i = 1; i < keys.Count; i++)
+                for (int i = 1; i < keys.Count; i++)
                 {
-                    if(Math.Abs(keys[i].Value - keys[0].Value) > 0.001f)
+                    if (Math.Abs(keys[i].Value - keys[0].Value) > 0.001f)
                     {
                         keyTrack = false;
                         break;
@@ -214,7 +214,7 @@ namespace MexTK.Tools
 
                 prevIndex = index;
             }
-            
+
             int removedLinear = 0;
 
             // use linear where possible
@@ -234,27 +234,24 @@ namespace MexTK.Tools
 
             int removed = 0;
             // cleanup pass, make sure all frames are necessary
-            for (int i = 0; i < 1; i++)
+            List<FOBJKey> finalKeys = new List<FOBJKey>();
+            finalKeys.Add(keys[0]);
+            for (int j = 1; j < newKeys.Count - 1; j++)
             {
-                List<FOBJKey> finalKeys = new List<FOBJKey>();
-                finalKeys.Add(keys[0]);
-                for (int j = 1; j < newKeys.Count - 1; j++)
-                {
-                    var k = newKeys[j];
-                    analyzer2 = new KeyAnalyzer(newKeys.Where(e => e != k).ToList());
+                var k = newKeys[j];
+                analyzer1 = new KeyAnalyzer(newKeys.Where(e => e != k).ToList());
 
-                    KeyAnalyzer.GetMaxError(analyzer1, analyzer2, out error, out index);
+                KeyAnalyzer.GetMaxError(analyzer1, analyzer2, out error, out index);
 
-                    if (error < maxError)
-                        removed++;
-                    else
-                        finalKeys.Add(k);
-                }
-                finalKeys.Add(keys[keys.Count - 1]);
-                newKeys = finalKeys;
+                if (error < maxError)
+                    removed++;
+                else
+                    finalKeys.Add(k);
             }
+            finalKeys.Add(keys[keys.Count - 1]);
+            newKeys = finalKeys;
 
-            //Console.WriteLine($"Removed {removed} keys converted {removedLinear} to linear");
+            Debug.WriteLine($"Removed {removed} keys converted {removedLinear} to linear");
 
             // make sure to always have final key
             //if (!newKeys.Contains(keys[keys.Count - 1]))

@@ -47,6 +47,7 @@ Options:
     -w                                    : disable compilation warnings
     -q                                    : Quiet Mode (Console doesn't print information)
     -c                                    : clean build (deletes .o files after compilation)
+    -l (file.lst)                         : specify link file
 
 Ex: mexff.exe -i 'main.c' -o 'ftFunction.dat' -q
 Compile 'main.c' and outputs 'ftFunction.dat' in quiet mode
@@ -66,6 +67,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
             // Parse Args
             List<Tuple<int, string>> itemInputs = new List<Tuple<int, string>>();
             List<string> inputs = new List<string>();
+            LinkFile linkFile = new LinkFile();
             string output = "";
             string symbolName = "";
             string datFile = null;
@@ -116,6 +118,9 @@ and injects it into PlMan.dat with the symbol name itFunction";
 
                 if (args[i] == "-q")
                     quiet = true;
+
+                if (args[i] == "-l" && i + 1 < args.Length)
+                    linkFile.LoadLinkFile(args[i + 1]);
             }
 
             // don't allow both item tables and normal tables
@@ -156,7 +161,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
             HSDAccessor function = null;
 
             if (itemInputs.Count == 0)
-                function = CompileInput(inputs.ToArray(), fightFuncTable, quiet, disableWarnings, clean, opLevel);
+                function = CompileInput(inputs.ToArray(), fightFuncTable, linkFile, quiet, disableWarnings, clean, opLevel);
             else
             {
                 function = new HSDAccessor() { _s = new HSDStruct(4) };
@@ -169,7 +174,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
 
-                    var relocFunc = CompileInput(new string[] { f.Item2 }, fightFuncTable, quiet, disableWarnings, clean, opLevel);
+                    var relocFunc = CompileInput(new string[] { f.Item2 }, fightFuncTable, linkFile, quiet, disableWarnings, clean, opLevel);
                     function._s.SetReference(4 + 0x04 * f.Item1, relocFunc);
                 }
                 function._s.SetInt32(0x00, count);
@@ -214,7 +219,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <param name="fightFuncTable"></param>
         /// <param name="quiet"></param>
         /// <returns></returns>
-        private static HSDAccessor CompileInput(string[] inputs, string[] funcTable, bool quiet, bool disableWarnings, bool clean, int optimizationLevel = 2)
+        private static HSDAccessor CompileInput(string[] inputs, string[] funcTable, LinkFile link, bool quiet, bool disableWarnings, bool clean, int optimizationLevel = 2)
         {
             if (inputs.Length == 0)
                 return null;
@@ -251,7 +256,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
                     p.StartInfo.RedirectStandardOutput = true;
                     p.StartInfo.FileName = gccPath;
-                    p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O{optimizationLevel}";
+                    p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mno-longcall -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O{optimizationLevel}";
                     p.Start();
 
                     p.WaitForExit();
@@ -276,7 +281,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 }
             }
 
-            return RelocELF.GenerateFunctionDAT(elfs.ToArray(), funcTable, quiet);
+            return RelocELF.GenerateFunctionDAT(elfs.ToArray(), link, funcTable, quiet);
         }
 
 

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using MexTK.Commands;
 using MexTK.Commands.Animation;
+using System.IO;
+using System.Text.RegularExpressions;
 
 namespace MexTK
 {
@@ -18,6 +20,7 @@ namespace MexTK
             new CmdRetargetAnimation(),
             new CmdOptimizeFigatree(),
         };
+
 
         static void Main(string[] args)
         {
@@ -40,6 +43,7 @@ namespace MexTK
                 Console.WriteLine("exiting...");
                 System.Threading.Thread.Sleep(1000);
             }
+            Console.ReadLine();
         }
         
 

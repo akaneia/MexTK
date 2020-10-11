@@ -60,6 +60,7 @@
     <Compile Include="Commands\Animation\CmdPortFigatree.cs" />
     <Compile Include="Commands\CmdTrimDAT.cs" />
     <Compile Include="Commands\ICommand.cs" />
+    <Compile Include="FighterFunction\LinkFile.cs" />
     <Compile Include="FighterFunction\Enums.cs" />
     <Compile Include="Tools\AnimationBakery.cs" />
     <Compile Include="Tools\BoneMap.cs" />

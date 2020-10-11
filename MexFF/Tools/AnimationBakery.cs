@@ -3,6 +3,7 @@ using HSDRaw.Common.Animation;
 using HSDRaw.Tools;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -38,7 +39,10 @@ namespace MexTK.Tools
                 {
                     var jfrom = jobjFrom.BreathFirstList[index];
 
-                    targetAnim.PortBoneTo(to, sourceAnim, jfrom);
+                    if(targetAnim.PortBoneTo(to, sourceAnim, jfrom))
+                    {
+                        Debug.WriteLine($"Retargeting {name}");
+                    }
                 }
 
                 jobjIndex++;
@@ -164,10 +168,10 @@ namespace MexTK.Tools
         /// <param name="jobj"></param>
         /// <param name="source"></param>
         /// <param name="source_jobj"></param>
-        public void PortBoneTo(HSD_JOBJ jobj, AnimationPlayer source, HSD_JOBJ source_jobj)
+        public bool PortBoneTo(HSD_JOBJ jobj, AnimationPlayer source, HSD_JOBJ source_jobj)
         {
             if (jobjToParent[jobj] == null)
-                return;
+                return false;
 
             var targetWorld = GetWorldTransform(jobj);
             var sourceWorld = source.GetWorldTransform(source_jobj);
@@ -177,13 +181,13 @@ namespace MexTK.Tools
             var sourceRotation = TrackNode.FromEulerAngles(source_jobj.RZ, source_jobj.RY, source_jobj.RX);
             sourceRotation = Quaternion.Inverse(sourceRotation);
 
-            // if bones have same orientation we can copy keys directly
+            // if bones have same orientation we can copy keys directly?
             if (ApproximatelySameOrientation(targetWorld, sourceWorld))
             {
-               jobjToTrack[jobj] = source.jobjToTrack[source_jobj];
-              return;
+                jobjToTrack[jobj] = source.jobjToTrack[source_jobj];
+                return false;
             }
-
+            
             // otherwise bake
             List<Matrix4x4> transforms = new List<Matrix4x4>();
             for (int i = 0; i <= FrameCount; i++)
@@ -201,13 +205,15 @@ namespace MexTK.Tools
                 relTranslate = Vector3.Transform(relTranslate, sourceRotation);
                 relTranslate = Vector3.Transform(relTranslate, targetRotation);
 
-                newT.Translation = new Vector3(jobj.TX, jobj.TY, jobj.TZ);// + relTranslate;
+                //newT.Translation = new Vector3(jobj.TX, jobj.TY, jobj.TZ);// + relTranslate;
                 
                 transforms.Add(newT);
             }
 
             // then optimize
             jobjToTrack[jobj] = new TrackNode(transforms, source.jobjToTrack[source_jobj], source_jobj, jobj);
+
+            return true;
         }
 
         /// <summary>
@@ -276,6 +282,10 @@ namespace MexTK.Tools
 
             // skip constant tracks
             if (keys.Count == 1 && Math.Abs(keys[0].Value - defaultValue) < 0.001f)
+                return;
+
+            // skip constant tracks
+            if (keys.Count == 2 && Math.Abs(keys[0].Value - defaultValue) < 0.001f)
                 return;
 
             HSD_FOBJ fobj = new HSD_FOBJ();
@@ -384,7 +394,7 @@ namespace MexTK.Tools
             // otherwise we have to approximate
 
             var trans_error = 0.05f;
-            var rot_error = 0.05f;
+            var rot_error = 0.01f;
             var scale_error = 0.1f;
             
             X.Keys = xtrack != null ? xtrack : LineSimplification.Simplify(x, trans_error);
@@ -396,7 +406,7 @@ namespace MexTK.Tools
             SX.Keys = sxtrack != null ? sxtrack : LineSimplification.Simplify(sx, scale_error, true);
             SY.Keys = sytrack != null ? sytrack : LineSimplification.Simplify(sy, scale_error, true);
             SZ.Keys = sztrack != null ? sztrack : LineSimplification.Simplify(sz, scale_error, true);
-            
+
             /*
             X.Keys = xtrack != null && xtrack.Count < transforms.Count * 0.85f ? xtrack : LineSimplification.Simplify(x, trans_error);
             Y.Keys = ytrack != null && ytrack.Count < transforms.Count * 0.85f ? ytrack : LineSimplification.Simplify(y, trans_error);
