@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using MexTK.Commands;
 using MexTK.Commands.Animation;
-using System.IO;
-using System.Text.RegularExpressions;
+using MexTK.Commands.MEX;
 
 namespace MexTK
 {
@@ -12,8 +11,7 @@ namespace MexTK
         private static List<ICommand> Commands = new List<ICommand>()
         {
             new CmdFighterFunction(),
-            new CmdFighterDataBuild(),
-            new CmdFighterDataExtract(),
+            new CmdCspCompressor(),
             new CmdPortFigatree(),
             new CmdAddSymbol(),
             new CmdTrimDAT(),
@@ -42,7 +40,7 @@ namespace MexTK
                 Console.WriteLine("exiting...");
                 System.Threading.Thread.Sleep(1000);
             }
-            Console.ReadLine();
+            //Console.ReadLine();
         }
         
 

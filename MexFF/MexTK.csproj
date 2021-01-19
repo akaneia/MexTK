@@ -42,6 +42,7 @@
     <Reference Include="netstandard" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -53,24 +54,23 @@
   <ItemGroup>
     <Compile Include="Commands\Animation\CmdRetargetAnimation.cs" />
     <Compile Include="Commands\CmdAddSymbol.cs" />
-    <Compile Include="Commands\CmdFighterDataBuild.cs" />
-    <Compile Include="Commands\CmdFighterDataExtract.cs" />
     <Compile Include="Commands\CmdFighterFunction.cs" />
     <Compile Include="Commands\Animation\CmdOptimizeFigatree.cs" />
     <Compile Include="Commands\Animation\CmdPortFigatree.cs" />
     <Compile Include="Commands\CmdTrimDAT.cs" />
     <Compile Include="Commands\ICommand.cs" />
+    <Compile Include="Commands\MEX\CmdCspCompressor.cs" />
     <Compile Include="FighterFunction\LinkFile.cs" />
     <Compile Include="FighterFunction\Enums.cs" />
     <Compile Include="Tools\AnimationBakery.cs" />
     <Compile Include="Tools\BoneMap.cs" />
-    <Compile Include="Tools\FighterData.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="FighterFunction\RelocELF.cs" />
     <Compile Include="FighterFunction\Structs.cs" />
     <Compile Include="Tools\DatTools.cs" />
     <Compile Include="Tools\FileTools.cs" />
+    <Compile Include="Tools\ImageTools.cs" />
     <Compile Include="Tools\KeyReducer.cs" />
     <Compile Include="Tools\SkeletonPorter.cs" />
   </ItemGroup>

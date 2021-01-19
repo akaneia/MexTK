@@ -80,6 +80,15 @@ namespace MexTK.FighterFunction
         /// </summary>
         private List<SymbolData> SymbolSections = new List<SymbolData>();
 
+        public IEnumerable<SymbolData> SymbolEnumerator
+        {
+            get
+            {
+                foreach (var v in SymbolSections)
+                    yield return v;
+            }
+        }
+
         /// <summary>
         /// 
         /// </summary>

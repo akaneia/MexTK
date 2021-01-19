@@ -11,8 +11,8 @@ namespace MexTK.Commands
                 var dat = args[1];
 
                 HSDRawFile file = new HSDRawFile(dat);
-                foreach(var r in file.Roots)
-                    r.Data.Trim();
+                foreach (var r in file.Roots)
+                    r.Data.Optimize();
                 file.Save(dat);
 
                 return true;
