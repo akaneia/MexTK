@@ -9,30 +9,7 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>./HSDRaw.dll</HintPath>
     </Reference>
-    <!--<Reference Include="netstandard" />-->
   </ItemGroup>
-  <!--<ItemGroup>
-    <Compile Include="Commands/Animation/CmdRetargetAnimation.cs" />
-    <Compile Include="Commands/CmdAddSymbol.cs" />
-    <Compile Include="Commands/CmdFighterFunction.cs" />
-    <Compile Include="Commands/Animation/CmdOptimizeFigatree.cs" />
-    <Compile Include="Commands/Animation/CmdPortFigatree.cs" />
-    <Compile Include="Commands/CmdTrimDAT.cs" />
-    <Compile Include="Commands/ICommand.cs" />
-    <Compile Include="Commands/MEX/CmdCspCompressor.cs" />
-    <Compile Include="FighterFunction/LinkFile.cs" />
-    <Compile Include="FighterFunction/Enums.cs" />
-    <Compile Include="Tools/AnimationBakery.cs" />
-    <Compile Include="Tools/BoneMap.cs" />
-    <Compile Include="Properties/AssemblyInfo.cs" />
-    <Compile Include="FighterFunction/RelocELF.cs" />
-    <Compile Include="FighterFunction/Structs.cs" />
-    <Compile Include="Tools/DatTools.cs" />
-    <Compile Include="Tools/FileTools.cs" />
-    <Compile Include="Tools/ImageTools.cs" />
-    <Compile Include="Tools/KeyReducer.cs" />
-    <Compile Include="Tools/SkeletonPorter.cs" />
-  </ItemGroup>-->
   <ItemGroup>
     <Content Include="HSDRaw.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -43,26 +20,4 @@
     <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
     <PackageReference Include="System.Drawing.Common" Version="5.0.0" />
   </ItemGroup>
-  <!--<ItemGroup>
-    <Compile Remove="Commands/Animation/CmdOptimizeFigatree.cs" />
-    <Compile Remove="Commands/Animation/CmdPortFigatree.cs" />
-    <Compile Remove="Commands/Animation/CmdRetargetAnimation.cs" />
-    <Compile Remove="Commands/CmdAddSymbol.cs" />
-    <Compile Remove="Commands/CmdFighterFunction.cs" />
-    <Compile Remove="Commands/CmdTrimDAT.cs" />
-    <Compile Remove="Commands/ICommand.cs" />
-    <Compile Remove="Commands/MEX/CmdCspCompressor.cs" />
-    <Compile Remove="FighterFunction/Enums.cs" />
-    <Compile Remove="FighterFunction/LinkFile.cs" />
-    <Compile Remove="FighterFunction/RelocELF.cs" />
-    <Compile Remove="FighterFunction/Structs.cs" />
-    <Compile Remove="Properties/AssemblyInfo.cs" />
-    <Compile Remove="Tools/AnimationBakery.cs" />
-    <Compile Remove="Tools/BoneMap.cs" />
-    <Compile Remove="Tools/DatTools.cs" />
-    <Compile Remove="Tools/FileTools.cs" />
-    <Compile Remove="Tools/ImageTools.cs" />
-    <Compile Remove="Tools/KeyReducer.cs" />
-    <Compile Remove="Tools/SkeletonPorter.cs" />
-  </ItemGroup>-->
 </Project>
