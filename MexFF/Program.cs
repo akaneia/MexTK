@@ -40,7 +40,10 @@ namespace MexTK
                 Console.WriteLine("exiting...");
                 System.Threading.Thread.Sleep(1000);
             }
-            //Console.ReadLine();
+
+#if DEBUG
+            Console.ReadLine();
+#endif
         }
         
 

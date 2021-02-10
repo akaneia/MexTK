@@ -44,10 +44,10 @@ Options:
     -t (file.txt)                         : specify symbol table list
     -op (1-3)                             : optimization level
     -ow                                   : automatically overwrite files if they exists
-    -w                                    : disable compilation warnings
-    -q                                    : Quiet Mode (Console doesn't print information)
-    -c                                    : clean build (deletes .o files after compilation)
-    -l (file.lst)                         : specify link file
+    -w                                    : show compilation warnings
+    -v                                    : Verbose Mode (Console prints more information)
+    -d                                    : debug build (.o files are untouched after compilation)
+    -l (file.lst)                         : specify external link file)
 
 Ex: mexff.exe -i 'main.c' -o 'ftFunction.dat' -q
 Compile 'main.c' and outputs 'ftFunction.dat' in quiet mode
@@ -72,10 +72,10 @@ and injects it into PlMan.dat with the symbol name itFunction";
             string symbolName = "";
             string datFile = null;
             string[] fightFuncTable = null;
-            bool quiet = false;
+            bool quiet = true;
             bool yesOverwrite = false;
-            bool disableWarnings = false;
-            bool clean = false;
+            bool disableWarnings = true;
+            bool clean = true;
             int opLevel = 2;
 
             for (int i = 0; i < args.Length; i++)
@@ -108,19 +108,47 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     yesOverwrite = true;
 
                 if (args[i] == "-w")
-                    disableWarnings = true;
+                    disableWarnings = false;
 
-                if (args[i] == "-c")
-                    clean = true;
+                if (args[i] == "-d")
+                    clean = false;
 
                 if (args[i] == "-t" && i + 1 < args.Length)
                     fightFuncTable = File.ReadAllLines(args[i + 1]);
 
-                if (args[i] == "-q")
-                    quiet = true;
+                if (args[i] == "-v")
+                    quiet = false;
 
                 if (args[i] == "-l" && i + 1 < args.Length)
                     linkFile.LoadLinkFile(args[i + 1]);
+            }
+
+            //
+            if(string.IsNullOrEmpty(symbolName))
+            {
+                Console.WriteLine("Error: Symbol Required; please specify a symbol Ex:\"-s ftFunction\"");
+                return false;
+            }
+
+            // if output is null set the name to the symbol name
+            if (string.IsNullOrEmpty(datFile) && 
+                string.IsNullOrEmpty(output) && 
+                !string.IsNullOrEmpty(symbolName))
+                output = symbolName + ".dat";
+
+            // if function table not specified attempt to get it from symbol name
+            if(fightFuncTable == null && 
+                !string.IsNullOrEmpty(symbolName) &&
+                File.Exists(symbolName + ".txt"))
+            {
+                fightFuncTable = File.ReadAllLines(symbolName + ".txt");
+            }
+
+            // load link file in mex directory
+            foreach (var f in Directory.GetFiles(Directory.GetCurrentDirectory()))
+            {
+                if (Path.GetExtension(f).ToLower().Equals(".link"))
+                    linkFile.LoadLinkFile(f);
             }
 
             // don't allow both item tables and normal tables

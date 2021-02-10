@@ -49,7 +49,7 @@ namespace MexTK.Tools
         /// <returns></returns>
         public int GetIndex(string name)
         {
-            if (NameToIndex.ContainsKey(name))
+            if (name != null && NameToIndex.ContainsKey(name))
                 return NameToIndex[name];
 
             return -1;

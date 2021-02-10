@@ -36,6 +36,7 @@ namespace MexTK.Commands
                     {
                         d.Roots.AddRange(s.Roots);
                     }
+                    else
                     if (names.Count > 0)
                     {
                         foreach(var n in names)
@@ -49,7 +50,11 @@ namespace MexTK.Commands
                     }
                     else
                     {
-                        d.Roots.Add(s.Roots[0]);
+                        var root = d.Roots.Find(e => e.Name == s.Roots[0].Name);
+                        if (root == null)
+                            d.Roots.Add(s.Roots[0]);
+                        else
+                            root.Data = s.Roots[0].Data;
                     }
                 }
 
