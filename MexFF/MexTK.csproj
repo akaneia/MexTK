@@ -60,6 +60,7 @@
     <Compile Include="Commands\CmdTrimDAT.cs" />
     <Compile Include="Commands\ICommand.cs" />
     <Compile Include="Commands\MEX\CmdCspCompressor.cs" />
+    <Compile Include="Commands\MEX\CmdMoveLogicTemplateGenerator.cs" />
     <Compile Include="FighterFunction\LinkFile.cs" />
     <Compile Include="FighterFunction\Enums.cs" />
     <Compile Include="Tools\AnimationBakery.cs" />

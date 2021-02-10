@@ -17,6 +17,7 @@ namespace MexTK
             new CmdTrimDAT(),
             new CmdRetargetAnimation(),
             new CmdOptimizeFigatree(),
+            new CmdMoveLogicTemplateGenerator()
         };
 
         static void Main(string[] args)

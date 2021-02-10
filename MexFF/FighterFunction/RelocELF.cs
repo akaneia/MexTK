@@ -213,7 +213,9 @@ namespace MexTK.FighterFunction
                         if (Sections[sym.st_shndx].sh_type == SectionType.SHT_NOBITS)
                         {
                             symbolData = new byte[section.Data.Length];
-                            //Console.WriteLine($"{section.Name} {(Sections[sym.st_shndx].sh_offset + sym.st_value).ToString("X")} {sym.st_size} {sym.st_value} {symbolData.Length}");
+#if DEBUG
+                            Console.WriteLine($"{section.Name} {(Sections[sym.st_shndx].sh_offset + sym.st_value).ToString("X")} {sym.st_size} {sym.st_value} {symbolData.Length}");
+#endif
                         }
                         else
                         {
@@ -235,9 +237,10 @@ namespace MexTK.FighterFunction
 
                         // if the offset is 0 the function is usually in another file
                         SymbolSections[i].External = Sections[sym.st_shndx].sh_offset == 0;
-
-                        //Console.WriteLine(section.Name + " " + r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1) 
-                       //     + " " + Sections[sym.st_shndx].sh_info + " " + Sections[sym.st_shndx].sh_addr + " " + relocations.Count);
+#if DEBUG
+                        Console.WriteLine(section.Name + " " + r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1) 
+                            + " " + Sections[sym.st_shndx].sh_info + " " + Sections[sym.st_shndx].sh_addr + " " + relocations.Count);
+#endif
                     }
 
                     SymbolSections[i].Symbol = r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1);
@@ -364,7 +367,7 @@ namespace MexTK.FighterFunction
                     if (linkFiles.ContainsSymbol(sym.Symbol))
                         found = true;
 
-                    if (!found)
+                    if (!found && sym.Symbol != "_GLOBAL_OFFSET_TABLE_")
                         throw new Exception("Could not resolve external symbol " + sym.Symbol + " - " + sym.SectionName);
                 }
 
