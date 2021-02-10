@@ -252,21 +252,30 @@ and injects it into PlMan.dat with the symbol name itFunction";
             if (inputs.Length == 0)
                 return null;
 
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-                throw new Exception("Invalid platform " + Environment.OSVersion.Platform.ToString());
+            bool isWindows = (Environment.OSVersion.Platform == PlatformID.Win32NT);
 
-            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC").Replace("/opt/", "C:/");
+            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC");
 
             if (string.IsNullOrEmpty(devkitpath))
                 throw new FileNotFoundException("DEVKITPPC path not set");
 
-            var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc.exe");
+            if(isWindows)
+                devkitpath = devkitpath.Replace("/opt/", "C:/");
+
+            string gccRelPath;
+
+            if(isWindows)
+                gccRelPath = "bin/powerpc-eabi-gcc.exe";
+            else
+                gccRelPath = "bin/powerpc-eabi-gcc";
+
+            var gccPath = Path.Combine(devkitpath, gccRelPath);
 
             if (!File.Exists(gccPath))
                 gccPath = gccPath.Replace("C:/", "");
 
             if (!File.Exists(gccPath))
-                throw new FileNotFoundException("powerpc-eabi-gcc.exe not found at " + gccPath);
+                throw new FileNotFoundException("powerpc-eabi-gcc not found at " + gccPath);
 
             var ext = Path.GetExtension(inputs[0]).ToLower();
             List<RelocELF> elfs = new List<RelocELF>();
