@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 
 namespace MexTK.Commands
 {
@@ -136,16 +137,18 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 !string.IsNullOrEmpty(symbolName))
                 output = symbolName + ".dat";
 
+            var symbolPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, symbolName + ".txt");
+
             // if function table not specified attempt to get it from symbol name
-            if(fightFuncTable == null && 
+            if (fightFuncTable == null && 
                 !string.IsNullOrEmpty(symbolName) &&
-                File.Exists(symbolName + ".txt"))
+                File.Exists(symbolPath))
             {
-                fightFuncTable = File.ReadAllLines(symbolName + ".txt");
+                fightFuncTable = File.ReadAllLines(symbolPath);
             }
 
             // load link file in mex directory
-            foreach (var f in Directory.GetFiles(Directory.GetCurrentDirectory()))
+            foreach (var f in Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory))
             {
                 if (Path.GetExtension(f).ToLower().Equals(".link"))
                     linkFile.LoadLinkFile(f);
