@@ -24,6 +24,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -33,6 +34,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="HSDRaw, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
@@ -57,12 +59,16 @@
     <Compile Include="Commands\CmdFighterFunction.cs" />
     <Compile Include="Commands\Animation\CmdOptimizeFigatree.cs" />
     <Compile Include="Commands\Animation\CmdPortFigatree.cs" />
+    <Compile Include="Commands\CmdGenerateDatFile.cs" />
+    <Compile Include="Commands\CmdDebugSymbols.cs" />
     <Compile Include="Commands\CmdTrimDAT.cs" />
     <Compile Include="Commands\ICommand.cs" />
     <Compile Include="Commands\MEX\CmdCspCompressor.cs" />
     <Compile Include="Commands\MEX\CmdMoveLogicTemplateGenerator.cs" />
+    <Compile Include="FighterFunction\Compiling.cs" />
     <Compile Include="FighterFunction\LinkFile.cs" />
     <Compile Include="FighterFunction\Enums.cs" />
+    <Compile Include="FighterFunction\MapFile.cs" />
     <Compile Include="Tools\AnimationBakery.cs" />
     <Compile Include="Tools\BoneMap.cs" />
     <Compile Include="Program.cs" />

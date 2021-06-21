@@ -17,11 +17,15 @@ namespace MexTK
             new CmdTrimDAT(),
             new CmdRetargetAnimation(),
             new CmdOptimizeFigatree(),
-            new CmdMoveLogicTemplateGenerator()
+            new CmdMoveLogicTemplateGenerator(),
+            new CmdGenerateDatFile(),
+            new CmdDebugSymbols()
         };
 
         static void Main(string[] args)
         {
+            //args = new string[] { "-db", "GTME01.map", "melee.link" };
+
             if (args.Length > 0)
             {
                 foreach (var cmd in Commands)

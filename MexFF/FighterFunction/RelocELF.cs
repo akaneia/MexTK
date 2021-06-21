@@ -1,6 +1,7 @@
 ﻿using HSDRaw;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -238,8 +239,18 @@ namespace MexTK.FighterFunction
                         // if the offset is 0 the function is usually in another file
                         SymbolSections[i].External = Sections[sym.st_shndx].sh_offset == 0;
 #if DEBUG
-                        Console.WriteLine(section.Name + " " + r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1) 
+                        Console.WriteLine(section.Name + " " + r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1)
                             + " " + Sections[sym.st_shndx].sh_info + " " + Sections[sym.st_shndx].sh_addr + " " + relocations.Count);
+
+                        Debug.WriteLine($"{section.Name} {r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1)} {(Sections[sym.st_shndx].sh_offset + + sym.st_value).ToString("X")} {sym.st_size.ToString("X")}");
+
+
+                        if (section.Name == ".debug_line")
+                        {
+                            //r.Seek(Sections[sym.st_shndx].sh_offset + +sym.st_value);
+                            //ParseDebugLine(r);
+                        }
+
 #endif
                     }
 
@@ -250,6 +261,83 @@ namespace MexTK.FighterFunction
                 }
 
             }
+        }
+
+        private static void ParseDebugLine(BinaryReaderExt r)
+        {
+            // read header
+            var debug_line_header = new ELF_Debug_Line()
+            {
+                length = r.ReadUInt32(),
+                version = r.ReadUInt16(),
+                header_length = r.ReadUInt32(),
+                min_instruction_length = r.ReadByte(),
+                default_is_stmt = r.ReadByte(),
+                line_base = r.ReadSByte(),
+                line_range = r.ReadByte(),
+                opcode_base = r.ReadByte(),
+                std_opcode_lengths = new byte[12]
+            };
+            for (int k = 0; k < 12; k++)
+                debug_line_header.std_opcode_lengths[k] = r.ReadByte();
+
+            // read directories
+            while (r.PeekChar() != 0)
+            {
+                Debug.WriteLine(r.ReadString());
+            }
+            r.Skip(1);
+
+            // read files
+            while (r.PeekChar() != 0)
+            {
+                Debug.WriteLine(r.ReadString() + " " + r.ReadByte() + " " + r.ReadByte() + " " + r.ReadByte());
+            }
+
+            r.PrintPosition();
+
+            int address = 0;
+            int op_index = 0;
+            int file = 1;
+            int line = 1;
+            int column = 0;
+            bool is_stmt = debug_line_header.default_is_stmt != 0;
+            bool basic_block = false;
+            bool end_sequence = false;
+            bool prologue_end = false;
+            bool epilogue_begin = false;
+            int isa = 0;
+            int dicriminator = 0;
+
+            var op_code_start = r.Position;
+
+            while (true)
+            {
+                var op = r.ReadByte();
+
+                switch (op)
+                {
+                    case 0:
+                        // extended byte
+                        ReadLEB123(r);
+                        break;
+                }
+            }
+        }
+
+        public static int ReadLEB123(BinaryReaderExt e)
+        {
+            int result = 0;
+            int shift = 0;
+            while (true)
+            {
+                byte b = e.ReadByte();
+                result |= (b & 0x7F) << shift;
+                if ((b & 0x80) == 0)
+                    break;
+                shift += 7;
+            }
+            return result;
         }
 
         /// <summary>
@@ -282,26 +370,37 @@ namespace MexTK.FighterFunction
             }
             return relocA;
         }
-        
+
+        public class LinkedELF
+        {
+            public Dictionary<string, SymbolData> SymbolToData = new Dictionary<string, SymbolData>();
+
+            public List<SymbolData> AllSymbols = new List<SymbolData>();
+        }
+
         /// <summary>
         /// 
         /// </summary>
-        /// <returns></returns>
-        public static HSDAccessor GenerateFunctionDAT(RelocELF[] elfFiles, LinkFile linkFiles, string[] functions, bool quiet = false)
+        /// <param name="elfFiles"></param>
+        /// <param name="linkFiles"></param>
+        /// <param name="functions"></param>
+        /// <param name="quiet"></param>
+        public static LinkedELF LinkELFs(RelocELF[] elfFiles, LinkFile linkFiles, string[] functions, bool quiet = false)
         {
+            LinkedELF lelf = new LinkedELF();
+
             // Grab Symbol Table Info
-            Dictionary<int, SymbolData> data = new Dictionary<int, SymbolData>();
             Queue<SymbolData> symbolQueue = new Queue<SymbolData>();
 
             // Gather the root symbols needed for function table
-            if(functions == null)
+            if (functions == null)
             {
                 if (!quiet)
                     Console.WriteLine("No function table entered: defaulting to patching");
 
                 foreach (var elf in elfFiles)
                 {
-                    foreach(var sym in elf.SymbolSections)
+                    foreach (var sym in elf.SymbolSections)
                     {
                         var m = System.Text.RegularExpressions.Regex.Matches(sym.Symbol, @"0[xX][0-9a-fA-F]+");
                         if (m.Count > 0)
@@ -309,7 +408,7 @@ namespace MexTK.FighterFunction
                             uint loc;
                             if (uint.TryParse(m[0].Value.ToLower().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out loc))
                             {
-                                data.Add((int)loc, sym);
+                                lelf.SymbolToData.Add(loc.ToString("X"), sym);
                                 symbolQueue.Enqueue(sym);
                             }
                         }
@@ -325,7 +424,7 @@ namespace MexTK.FighterFunction
                         var sym = elf.SymbolSections.Find(e => e.Symbol.Equals(functions[i], StringComparison.InvariantCultureIgnoreCase));
                         if (sym != null)
                         {
-                            data.Add(i, sym);
+                            lelf.SymbolToData.Add(functions[i], sym);
                             symbolQueue.Enqueue(sym);
                         }
                     }
@@ -336,7 +435,6 @@ namespace MexTK.FighterFunction
             Dictionary<SymbolData, SymbolData> SymbolRemapper = new Dictionary<SymbolData, SymbolData>();
 
             // Get All Symbols and Dependencies
-            List<SymbolData> usedSymbols = new List<SymbolData>();
             while (symbolQueue.Count > 0)
             {
                 var orgsym = symbolQueue.Dequeue();
@@ -376,12 +474,13 @@ namespace MexTK.FighterFunction
                 {
                     bool duplicate = false;
                     // check if a symbol with this name is already used
-                    foreach (var s in usedSymbols)
+                    foreach (var s in lelf.AllSymbols)
                     {
                         if (s.Symbol.Equals(sym.Symbol))
                         {
                             // remap this symbol and mark as duplicate
-                            SymbolRemapper.Add(sym, s);
+                            if(!SymbolRemapper.ContainsKey(sym))
+                                SymbolRemapper.Add(sym, s);
                             duplicate = true;
                             break;
                         }
@@ -392,20 +491,20 @@ namespace MexTK.FighterFunction
                 }
 
                 // add symbols
-                usedSymbols.Add(sym);
+                lelf.AllSymbols.Add(sym);
 
 
                 // gather relocations from other symbols if necessary
                 // transfer relocations??
                 // if these are the same symbol and there is supposed to be a relocation, then port it?
-                foreach(var el in elfFiles)
+                foreach (var el in elfFiles)
                 {
-                    var symcols = el.SymbolSections.Where(e=>
-                        e != sym && 
+                    var symcols = el.SymbolSections.Where(e =>
+                        e != sym &&
                         e.SectionName == sym.SectionName &&
                         e.Data.SequenceEqual(sym.Data));
-                    
-                    foreach(var s in symcols)
+
+                    foreach (var s in symcols)
                     {
                         foreach (var sReloc in s.Relocations)
                         {
@@ -420,14 +519,14 @@ namespace MexTK.FighterFunction
                 // add relocation sections to queue
                 foreach (var v in sym.Relocations)
                 {
-                    if (!usedSymbols.Contains(v.Symbol) && !symbolQueue.Contains(v.Symbol))
+                    if (!lelf.AllSymbols.Contains(v.Symbol) && !symbolQueue.Contains(v.Symbol))
                         symbolQueue.Enqueue(v.Symbol);
                 }
             }
-            
+
 
             // remap relocation table
-            foreach (var v in usedSymbols)
+            foreach (var v in lelf.AllSymbols)
             {
                 System.Diagnostics.Debug.WriteLine(v.SectionName + " " + v.Relocations.Count);
                 for (int i = 0; i < v.Relocations.Count; i++)
@@ -435,28 +534,42 @@ namespace MexTK.FighterFunction
                     if (SymbolRemapper.ContainsKey(v.Relocations[i].Symbol))
                         v.Relocations[i].Symbol = SymbolRemapper[v.Relocations[i].Symbol];
 
-                    if (!usedSymbols.Contains(v.Relocations[i].Symbol) && !linkFiles.ContainsSymbol(v.Relocations[i].Symbol.Symbol))
+                    if (!lelf.AllSymbols.Contains(v.Relocations[i].Symbol) && !linkFiles.ContainsSymbol(v.Relocations[i].Symbol.Symbol))
                         throw new Exception("Missing Symbol " + v.Relocations[i].Symbol.Symbol + " " + v.Symbol);
                 }
-
             }
 
+            return lelf;
+        }
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public static HSDAccessor GenerateFunctionDAT(RelocELF[] elfFiles, LinkFile linkFiles, string[] functions, bool debug, bool quiet = false)
+        {
+            var lelf = LinkELFs(elfFiles, linkFiles, functions, quiet);
 
             // Generate Function DAT
-            var function = new HSDAccessor() { _s = new HSDStruct(0x14) };
-
+            var function = new HSDAccessor() { _s = new HSDStruct(0x20) };
 
             // Generate code section
+            HSDStruct debug_symbol_table = null;
+            int debug_symbol_count = 0;
             Dictionary<SymbolData, long> dataToOffset = new Dictionary<SymbolData, long>();
             byte[] codedata;
             using (MemoryStream code = new MemoryStream())
             {
-                foreach(var v in usedSymbols)
+                if (debug)
+                    debug_symbol_table = new HSDStruct((lelf.AllSymbols.Count + 1) * 0xC);
+                int function_index = 0;
+                foreach(var v in lelf.AllSymbols)
                 {
                     // align
                     if (code.Length % 4 != 0)
                         code.Write(new byte[4 - (code.Length % 4)], 0, 4 - ((int)code.Length % 4));
 
+                    int code_start = (int)code.Position;
                     // write code
                     if(v.Data.Length == 0 && linkFiles.TryGetSymbolAddress(v.Symbol, out uint addr))
                     {
@@ -467,18 +580,29 @@ namespace MexTK.FighterFunction
                         dataToOffset.Add(v, code.Length);
                         code.Write(v.Data, 0, v.Data.Length);
                     }
+                    int code_end = (int)code.Position;
+
+                    if (debug && code_start != code_end)
+                    {
+                        debug_symbol_table.SetInt32(function_index * 0xC, code_start);
+                        debug_symbol_table.SetInt32(function_index * 0xC + 4, code_end);
+                        debug_symbol_table.SetString(function_index * 0xC + 8, v.Symbol, true);
+                        debug_symbol_count++;
+                    }
+
+                    function_index++;
                 }
                 codedata = code.ToArray();
             }
 
-
             // generate function table
             HSDStruct functionTable = new HSDStruct(8);
             var funcCount = 0;
-            foreach(var v in data)
+            var fl = functions.ToList();
+            foreach(var v in lelf.SymbolToData)
             {
                 functionTable.Resize(8 * (funcCount + 1));
-                functionTable.SetInt32(funcCount * 8, v.Key);
+                functionTable.SetInt32(funcCount * 8, fl.IndexOf(v.Key));
                 functionTable.SetInt32(funcCount * 8 + 4, (int)dataToOffset[v.Value]);
                 funcCount++;
             }
@@ -492,7 +616,7 @@ namespace MexTK.FighterFunction
             // Generate Relocation Table
             HSDStruct relocationTable = new HSDStruct(0);
             var relocCount = 0;
-            foreach(var v in usedSymbols)
+            foreach(var v in lelf.AllSymbols)
             {
                 // check data length
                 if (v.Data.Length == 0)
@@ -583,6 +707,13 @@ namespace MexTK.FighterFunction
             function._s.SetReferenceStruct(0x00, new HSDStruct(codedata));
             function._s.SetReferenceStruct(0x04, relocationTable);
             function._s.SetInt32(0x08, relocCount);
+
+            if (debug_symbol_table != null)
+            {
+                function._s.SetInt32(0x14, codedata.Length);
+                function._s.SetInt32(0x18, debug_symbol_count);
+                function._s.SetReferenceStruct(0x1C, debug_symbol_table);
+            }
 
             return function;
         }

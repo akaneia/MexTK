@@ -66,7 +66,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
         public bool DoIt(string[] args)
         {
             // Parse Args
-            List<Tuple<int, string>> itemInputs = new List<Tuple<int, string>>();
+            List<Tuple<int, List<string>>> itemInputs = new List<Tuple<int, List<string>>>();
             List<string> inputs = new List<string>();
             LinkFile linkFile = new LinkFile();
             string output = "";
@@ -91,7 +91,17 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 }
 
                 if (args[i] == "-item" && i + 2 < args.Length)
-                    itemInputs.Add(new Tuple<int, string>(int.Parse(args[i + 1]), Path.GetFullPath(args[i + 2])));
+                {
+                    List<string> itemRefList = new List<string>();
+
+                    for (int j = i + 2; j < args.Length; j++)
+                        if (File.Exists(args[j]))
+                            itemRefList.Add(Path.GetFullPath(args[j]));
+                        else
+                            break;
+
+                    itemInputs.Add(new Tuple<int, List<string>>(int.Parse(args[i + 1]), itemRefList));
+                }
 
                 if (args[i] == "-op" && i + 1 < args.Length)
                     opLevel = int.Parse(args[i + 1]);
@@ -205,7 +215,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
 
-                    var relocFunc = CompileInput(new string[] { f.Item2 }, fightFuncTable, linkFile, quiet, disableWarnings, clean, opLevel);
+                    var relocFunc = CompileInput(f.Item2.ToArray(), fightFuncTable, linkFile, quiet, disableWarnings, clean, opLevel);
                     function._s.SetReference(4 + 0x04 * f.Item1, relocFunc);
                 }
                 function._s.SetInt32(0x00, count);
@@ -252,67 +262,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <returns></returns>
         private static HSDAccessor CompileInput(string[] inputs, string[] funcTable, LinkFile link, bool quiet, bool disableWarnings, bool clean, int optimizationLevel = 2)
         {
-            if (inputs.Length == 0)
-                return null;
-
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-                throw new Exception("Invalid platform " + Environment.OSVersion.Platform.ToString());
-
-            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC").Replace("/opt/", "C:/");
-
-            if (string.IsNullOrEmpty(devkitpath))
-                throw new FileNotFoundException("DEVKITPPC path not set");
-
-            var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc.exe");
-
-            if (!File.Exists(gccPath))
-                gccPath = gccPath.Replace("C:/", "");
-
-            if (!File.Exists(gccPath))
-                throw new FileNotFoundException("powerpc-eabi-gcc.exe not found at " + gccPath);
-
-            var ext = Path.GetExtension(inputs[0]).ToLower();
-            List<RelocELF> elfs = new List<RelocELF>();
-
-            foreach (var input in inputs)
-            {
-                if (ext.Equals(".o"))
-                    elfs.Add(new RelocELF(File.ReadAllBytes(input)));
-
-                if (ext.Equals(".c"))
-                {
-                    Process p = new Process();
-
-                    p.StartInfo.UseShellExecute = false;
-                    p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
-                    p.StartInfo.RedirectStandardOutput = true;
-                    p.StartInfo.FileName = gccPath;
-                    p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mno-longcall -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O{optimizationLevel}";
-                    p.Start();
-
-                    p.WaitForExit();
-
-                    var outputPath = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".o");
-                    var outputPathD = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".d");
-
-                    if (p.ExitCode != 0 || !File.Exists(outputPath))
-                    {
-                        Console.WriteLine();
-                        throw new InvalidDataException($"{Path.GetFileName(input)} failed to compile, see output above for details");
-                    }
-
-                    elfs.Add(new RelocELF(File.ReadAllBytes(outputPath)));
-
-                    if (clean)
-                    {
-                        File.Delete(outputPath);
-                        File.Delete(outputPathD);
-                    }
-
-                }
-            }
-
-            return RelocELF.GenerateFunctionDAT(elfs.ToArray(), link, funcTable, quiet);
+            return RelocELF.GenerateFunctionDAT(Compiling.Compile(inputs, disableWarnings, clean, optimizationLevel).ToArray(), link, funcTable, !clean, quiet);
         }
 
 

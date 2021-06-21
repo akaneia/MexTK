@@ -43,4 +43,22 @@
         }
     }
 
+
+    public struct ELF_Debug_Line
+    {
+        public uint length;
+        public ushort version;
+        public uint header_length;
+        public byte min_instruction_length;
+        public byte default_is_stmt;
+        public sbyte line_base;
+        public byte line_range;
+        public byte opcode_base;
+        public byte[] std_opcode_lengths;
+
+        public override string ToString()
+        {
+            return $"Debug Line Version: {version}";
+        }
+    }
 }

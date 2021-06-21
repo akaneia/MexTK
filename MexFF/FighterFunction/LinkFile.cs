@@ -47,6 +47,26 @@ namespace MexTK.FighterFunction
         /// <summary>
         /// 
         /// </summary>
+        /// <param name="symbol"></param>
+        /// <param name="position"></param>
+        /// <returns></returns>
+        public bool TryGetAddressSymbol(uint address, out string symbol)
+        {
+            symbol = null;
+            foreach (var v in List)
+            {
+                if (v.Value == address)
+                {
+                    symbol = v.Key;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
         /// <param name="filepath"></param>
         public void LoadLinkFile(string filepath)
         {
