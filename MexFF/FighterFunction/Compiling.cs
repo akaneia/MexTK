@@ -13,28 +13,33 @@ namespace MexTK.FighterFunction
             if (inputs.Length == 0)
                 return null;
 
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-                throw new Exception("Invalid platform " + Environment.OSVersion.Platform.ToString());
+            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC");
+            var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc");
 
-            var devkitpath = Environment.GetEnvironmentVariable("DEVKITPPC").Replace("/opt/", "C:/");
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                devkitpath = devkitpath.Replace("/opt/", "C:/");
 
-            if (string.IsNullOrEmpty(devkitpath))
-                throw new FileNotFoundException("DEVKITPPC path not set");
+                if (string.IsNullOrEmpty(devkitpath))
+                    throw new FileNotFoundException("DEVKITPPC path not set");
 
-            var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc.exe");
+                gccPath = Path.Combine(gccPath, ".exe");
 
-            if (!File.Exists(gccPath))
-                gccPath = gccPath.Replace("C:/", "");
+                if (!File.Exists(gccPath))
+                    gccPath = gccPath.Replace("C:/", "");
 
-            if (File.Exists(StandardPath))
-                gccPath = StandardPath;
+                if (File.Exists(StandardPath))
+                    gccPath = StandardPath;
 
-            if (!File.Exists(gccPath))
-                throw new FileNotFoundException("powerpc-eabi-gcc.exe not found at " + gccPath);
+                if (!File.Exists(gccPath))
+                    throw new FileNotFoundException("powerpc-eabi-gcc.exe not found at " + gccPath);
 
+
+            }
+                
             var ext = Path.GetExtension(inputs[0]).ToLower();
             List<RelocELF> elfs = new List<RelocELF>();
-
+            
             foreach (var input in inputs)
             {
                 if (ext.Equals(".o"))
