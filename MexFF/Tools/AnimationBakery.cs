@@ -98,7 +98,7 @@ namespace MexTK.Tools
 
                 foreach(var track in node.Tracks)
                 {
-                    var fobj = track.FOBJ;
+                    var fobj = track.ToFOBJ();
 
                     switch (fobj.JointTrackType)
                     {
@@ -292,7 +292,7 @@ namespace MexTK.Tools
             fobj.SetKeys(keys, type);
 
             HSD_Track track = new HSD_Track();
-            track.FOBJ = fobj;
+            track.FromFOBJ(fobj);
 
             node.Tracks.Add(track);
         }

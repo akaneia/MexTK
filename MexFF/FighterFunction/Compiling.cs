@@ -37,38 +37,42 @@ namespace MexTK.FighterFunction
 
             foreach (var input in inputs)
             {
+                if (ext.Equals(".a"))
+                    elfs.AddRange(LibArchive.GetElfs(input));
+
                 if (ext.Equals(".o"))
                     elfs.Add(new RelocELF(File.ReadAllBytes(input)));
 
-                if (ext.Equals(".c"))
+                if (ext.Equals(".c") || ext.Equals(".cpp"))
                 {
-                    Process p = new Process();
-
-                    p.StartInfo.UseShellExecute = false;
-                    p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
-                    p.StartInfo.RedirectStandardOutput = true;
-                    p.StartInfo.FileName = gccPath;
-                    // add -g for debug symbols
-                    p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mno-longcall -mhard-float -c \"{input}\" {(disableWarnings ? "-w" : "")} -O{optimizationLevel}";
-                    p.Start();
-
-                    p.WaitForExit();
-
-                    var outputPath = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".o");
-                    var outputPathD = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".d");
-
-                    if (p.ExitCode != 0 || !File.Exists(outputPath))
+                    using (Process p = new Process())
                     {
-                        Console.WriteLine();
-                        throw new InvalidDataException($"{Path.GetFileName(input)} failed to compile, see output above for details");
-                    }
+                        p.StartInfo.UseShellExecute = false;
+                        p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
+                        p.StartInfo.RedirectStandardOutput = true;
+                        p.StartInfo.FileName = gccPath;
+                        // add -g for debug symbols
+                        p.StartInfo.Arguments = $"-MMD -MP -Wall -DGEKKO -mogc -mcpu=750 -meabi -mno-longcall -mhard-float -fpermissive -g -c \"{input}\" {(disableWarnings ? "-w" : "")} -O{optimizationLevel}";
+                        p.Start();
 
-                    elfs.Add(new RelocELF(File.ReadAllBytes(outputPath)));
+                        p.WaitForExit();
 
-                    if (clean)
-                    {
-                        File.Delete(outputPath);
-                        File.Delete(outputPathD);
+                        var outputPath = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".o");
+                        var outputPathD = Path.Combine(Path.GetDirectoryName(input), Path.GetFileNameWithoutExtension(input) + ".d");
+
+                        if (p.ExitCode != 0 || !File.Exists(outputPath))
+                        {
+                            Console.WriteLine();
+                            throw new InvalidDataException($"{Path.GetFileName(input)} failed to compile, see output above for details");
+                        }
+
+                        elfs.Add(new RelocELF(File.ReadAllBytes(outputPath)));
+
+                        if (clean)
+                        {
+                            File.Delete(outputPath);
+                            File.Delete(outputPathD);
+                        }
                     }
                 }
             }

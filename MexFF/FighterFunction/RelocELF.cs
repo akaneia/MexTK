@@ -210,18 +210,24 @@ namespace MexTK.FighterFunction
                     {
                         SymbolSections[i].SectionName = section.Name;
 
-                        // If size of section is 0, get all data?
                         if (Sections[sym.st_shndx].sh_type == SectionType.SHT_NOBITS)
                         {
                             symbolData = new byte[section.Data.Length];
 #if DEBUG
-                            Console.WriteLine($"{section.Name} {(Sections[sym.st_shndx].sh_offset + sym.st_value).ToString("X")} {sym.st_size} {sym.st_value} {symbolData.Length}");
+                            // Console.WriteLine($"{section.Name} {(Sections[sym.st_shndx].sh_offset + sym.st_value).ToString("X")} {sym.st_size} {sym.st_value} {symbolData.Length} {Sections[sym.st_shndx].sh_type}");
 #endif
                         }
                         else
                         {
+                            // If size of section is 0, get all data?
                             if (sym.st_size == 0)
                                 symbolData = section.Data;
+                            //else
+                            //if ((sym.st_value & 0x80000000) != 0)
+                            //{
+                            //    Array.Copy(section.Data, sym.st_value - 0x80000000 - Sections[sym.st_shndx].sh_offset, symbolData, 0, sym.st_size);
+                            //    Debug.WriteLine($"LONG CALL {section.Relocations.Count} Off: {(sym.st_value - 0x80000000).ToString("X")} SectionOff: {Sections[sym.st_shndx].sh_offset.ToString("X")} {sym.st_value.ToString("X")} Size: {sym.st_size.ToString("X")} Total Size: {section.Data.Length.ToString("X")}");
+                            //}
                             else
                                 Array.Copy(section.Data, sym.st_value, symbolData, 0, sym.st_size);
 
@@ -239,10 +245,10 @@ namespace MexTK.FighterFunction
                         // if the offset is 0 the function is usually in another file
                         SymbolSections[i].External = Sections[sym.st_shndx].sh_offset == 0;
 #if DEBUG
-                        Console.WriteLine(section.Name + " " + r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1)
-                            + " " + Sections[sym.st_shndx].sh_info + " " + Sections[sym.st_shndx].sh_addr + " " + relocations.Count);
+                        //Console.WriteLine(section.Name + " " + r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1)
+                        //    + " " + Sections[sym.st_shndx].sh_info + " " + Sections[sym.st_shndx].sh_addr + " " + relocations.Count);
 
-                        Debug.WriteLine($"{section.Name} {r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1)} {(Sections[sym.st_shndx].sh_offset + + sym.st_value).ToString("X")} {sym.st_size.ToString("X")}");
+                        //Debug.WriteLine($"{section.Name} {r.ReadString((int)(symbolStringSection.sh_offset + sym.st_name), -1)} {(Sections[sym.st_shndx].sh_offset + + sym.st_value).ToString("X")} {sym.st_size.ToString("X")}");
 
 
                         if (section.Name == ".debug_line")
@@ -378,6 +384,28 @@ namespace MexTK.FighterFunction
             public List<SymbolData> AllSymbols = new List<SymbolData>();
         }
 
+        private static string CppSanatize(string s)
+        {
+            if (s.StartsWith("_Z"))
+            {
+                int length = 0;
+                int i;
+                for (i = 2; i < s.Length; i++)
+                {
+                    if (s[i] < '0' || s[i] > '9')
+                        break;
+                    length *= 10;
+                    length += s[i] - '0';
+                }
+
+                if (length <= 0)
+                    return s;
+
+                return s.Substring(i, length);
+            }
+            return s;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -385,7 +413,7 @@ namespace MexTK.FighterFunction
         /// <param name="linkFiles"></param>
         /// <param name="functions"></param>
         /// <param name="quiet"></param>
-        public static LinkedELF LinkELFs(RelocELF[] elfFiles, LinkFile linkFiles, string[] functions, bool quiet = false)
+        public static LinkedELF LinkELFs(List<RelocELF> elfFiles, LinkFile linkFiles, string[] functions, bool quiet = false)
         {
             LinkedELF lelf = new LinkedELF();
 
@@ -421,7 +449,13 @@ namespace MexTK.FighterFunction
                 {
                     foreach (var elf in elfFiles)
                     {
-                        var sym = elf.SymbolSections.Find(e => e.Symbol.Equals(functions[i], StringComparison.InvariantCultureIgnoreCase));
+                        var sym = elf.SymbolSections.Find(e => CppSanatize(e.Symbol).Equals(functions[i], StringComparison.InvariantCultureIgnoreCase));
+
+                        if (lelf.SymbolToData.ContainsKey(functions[i]))
+                        {
+                            Console.WriteLine($"Warning: found two table functions with the same symbol {functions[i]} defaulting to first found");
+                        }
+                        else
                         if (sym != null)
                         {
                             lelf.SymbolToData.Add(functions[i], sym);
@@ -462,11 +496,11 @@ namespace MexTK.FighterFunction
                         }
                     }
 
-                    if (linkFiles.ContainsSymbol(sym.Symbol))
+                    if (linkFiles.ContainsSymbol(CppSanatize(sym.Symbol)))
                         found = true;
 
                     if (!found && sym.Symbol != "_GLOBAL_OFFSET_TABLE_")
-                        throw new Exception("Could not resolve external symbol " + sym.Symbol + " - " + sym.SectionName);
+                        throw new Exception("Could not resolve external symbol " + sym.Symbol + " - " + sym.SectionName + " " + sym.External);
                 }
 
                 // resolve duplicates
@@ -490,6 +524,15 @@ namespace MexTK.FighterFunction
                         continue;
                 }
 
+
+                // hack to inject static variables from link file
+                if (linkFiles.TryGetSymbolAddress(CppSanatize(sym.Symbol), out uint addr) && 
+                    sym.Data.Length == 4 &&
+                    sym.Data[0] == 0 && sym.Data[1] == 0 && sym.Data[2] == 0 && sym.Data[3] == 0)
+                {
+                    sym.Data = new byte[] { (byte)((addr >> 24) & 0xFF), (byte)((addr >> 16) & 0xFF), (byte)((addr >> 8) & 0xFF), (byte)(addr & 0xFF) };
+                }
+                    
                 // add symbols
                 lelf.AllSymbols.Add(sym);
 
@@ -534,7 +577,7 @@ namespace MexTK.FighterFunction
                     if (SymbolRemapper.ContainsKey(v.Relocations[i].Symbol))
                         v.Relocations[i].Symbol = SymbolRemapper[v.Relocations[i].Symbol];
 
-                    if (!lelf.AllSymbols.Contains(v.Relocations[i].Symbol) && !linkFiles.ContainsSymbol(v.Relocations[i].Symbol.Symbol))
+                    if (!lelf.AllSymbols.Contains(v.Relocations[i].Symbol) && !linkFiles.ContainsSymbol(CppSanatize(v.Relocations[i].Symbol.Symbol)))
                         throw new Exception("Missing Symbol " + v.Relocations[i].Symbol.Symbol + " " + v.Symbol);
                 }
             }
@@ -546,10 +589,8 @@ namespace MexTK.FighterFunction
         /// 
         /// </summary>
         /// <returns></returns>
-        public static HSDAccessor GenerateFunctionDAT(RelocELF[] elfFiles, LinkFile linkFiles, string[] functions, bool debug, bool quiet = false)
+        public static HSDAccessor GenerateFunctionDAT(LinkedELF lelf, LinkFile link, string[] functions, bool debug, bool quiet = false)
         {
-            var lelf = LinkELFs(elfFiles, linkFiles, functions, quiet);
-
             // Generate Function DAT
             var function = new HSDAccessor() { _s = new HSDStruct(0x20) };
 
@@ -560,9 +601,11 @@ namespace MexTK.FighterFunction
             byte[] codedata;
             using (MemoryStream code = new MemoryStream())
             {
+                // create debug symbol table
                 if (debug)
                     debug_symbol_table = new HSDStruct((lelf.AllSymbols.Count + 1) * 0xC);
-                int function_index = 0;
+
+                // process all code
                 foreach(var v in lelf.AllSymbols)
                 {
                     // align
@@ -571,7 +614,7 @@ namespace MexTK.FighterFunction
 
                     int code_start = (int)code.Position;
                     // write code
-                    if(v.Data.Length == 0 && linkFiles.TryGetSymbolAddress(v.Symbol, out uint addr))
+                    if(v.Data.Length == 0 && link.TryGetSymbolAddress(CppSanatize(v.Symbol), out uint addr))
                     {
                         dataToOffset.Add(v, addr);
                     }
@@ -582,17 +625,21 @@ namespace MexTK.FighterFunction
                     }
                     int code_end = (int)code.Position;
 
+                    //Console.WriteLine($"{v.SectionName} {v.Symbol} Start: {code_start.ToString("X")} End: {code_end.ToString("X")} ");
+
                     if (debug && code_start != code_end)
                     {
-                        debug_symbol_table.SetInt32(function_index * 0xC, code_start);
-                        debug_symbol_table.SetInt32(function_index * 0xC + 4, code_end);
-                        debug_symbol_table.SetString(function_index * 0xC + 8, v.Symbol, true);
+                        debug_symbol_table.SetInt32(debug_symbol_count * 0xC, code_start);
+                        debug_symbol_table.SetInt32(debug_symbol_count * 0xC + 4, code_end);
+                        debug_symbol_table.SetString(debug_symbol_count * 0xC + 8, string.IsNullOrEmpty(v.Symbol) ? v.SectionName : v.Symbol, true);
                         debug_symbol_count++;
                     }
-
-                    function_index++;
                 }
                 codedata = code.ToArray();
+
+                // resize debug table
+                if (debug)
+                    debug_symbol_table.Resize(debug_symbol_count * 0xC);
             }
 
             // generate function table
@@ -620,7 +667,7 @@ namespace MexTK.FighterFunction
             {
                 // check data length
                 if (v.Data.Length == 0)
-                    if (linkFiles.ContainsSymbol(v.Symbol))
+                    if (link.ContainsSymbol(CppSanatize(v.Symbol)))
                         continue;
                     else
                         throw new Exception($"Error: {v.Symbol} length is {v.Data.Length.ToString("X")}");
@@ -629,6 +676,7 @@ namespace MexTK.FighterFunction
                 if (!quiet)
                 {
                     Console.WriteLine($"{v.Symbol,-30} {v.SectionName, -50} Offset: {dataToOffset[v].ToString("X8"), -16} Length: {v.Data.Length.ToString("X8")}");
+                    
                     if(v.Relocations.Count > 0)
                         Console.WriteLine($"\t {"Section:",-50} {"RelocType:",-20} {"FuncOffset:", -16} {"SectionOffset:"}");
                 }
@@ -652,9 +700,11 @@ namespace MexTK.FighterFunction
                         case RelocType.R_PPC_ADDR16_LO:
                         case RelocType.R_PPC_ADDR16_HA:
                             break;
+                        case (RelocType)0x6D:
+                            break;
                         default:
                             // no exception, but not guarenteed to work
-                            Console.WriteLine("Warning: unsupported reloc type " + reloc.Type.ToString("X") + " send this to Ploaj or UnclePunch");
+                            Console.WriteLine($"Warning: unsupported reloc type {toFunctionOffset.ToString("X")} " + reloc.Type.ToString("X") + $" in {v.Symbol} to {reloc.Symbol.Symbol} send this to Ploaj or UnclePunch");
                             break;
                     }
 
@@ -669,6 +719,7 @@ namespace MexTK.FighterFunction
                         // apply relocation automatically if possible
                         switch (reloc.Type)
                         {
+                            case (RelocType)0x6D:
                             case RelocType.R_PPC_REL32:
                                 codedata[codeOffset] = (byte)((rel >> 24) & 0xFF);
                                 codedata[codeOffset + 1] = (byte)((rel >> 16) & 0xFF);

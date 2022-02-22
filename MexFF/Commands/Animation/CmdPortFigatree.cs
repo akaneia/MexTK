@@ -119,7 +119,7 @@ ect...";
                             
                             foreach (var track in n.Tracks)
                             {
-                                var fobj = track.FOBJ;
+                                var fobj = track.ToFOBJ();
                                 var keys = fobj.GetDecodedKeys();
                                 switch (fobj.JointTrackType)
                                 {
@@ -138,9 +138,9 @@ ect...";
                                 }
                             }
 
-                            rotXTrack.FOBJ = OrientTrack(boneName, port, rx.Keys, JointTrackType.HSD_A_J_ROTX, jobj, jobjsTo[nodeIndex]);
-                            rotYTrack.FOBJ = OrientTrack(boneName, port, ry.Keys, JointTrackType.HSD_A_J_ROTY, jobj, jobjsTo[nodeIndex]);
-                            rotZTrack.FOBJ = OrientTrack(boneName, port, rz.Keys, JointTrackType.HSD_A_J_ROTZ, jobj, jobjsTo[nodeIndex]);
+                            rotXTrack.FromFOBJ(OrientTrack(boneName, port, rx.Keys, JointTrackType.HSD_A_J_ROTX, jobj, jobjsTo[nodeIndex]));
+                            rotYTrack.FromFOBJ(OrientTrack(boneName, port, ry.Keys, JointTrackType.HSD_A_J_ROTY, jobj, jobjsTo[nodeIndex]));
+                            rotZTrack.FromFOBJ(OrientTrack(boneName, port, rz.Keys, JointTrackType.HSD_A_J_ROTZ, jobj, jobjsTo[nodeIndex]));
 
                             newNodes[ind].Tracks.Add(rotXTrack);
                             newNodes[ind].Tracks.Add(rotYTrack);
