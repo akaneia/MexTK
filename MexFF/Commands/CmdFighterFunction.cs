@@ -247,7 +247,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
             // single table compile
             if (itemInputs.Count == 0)
             {
-                var elfs = CompileElfs(inputs.ToArray(), disableWarnings, clean, opLevel);
+                var elfs = CompileElfs(inputs.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet);
 
                 //foreach (var f in Directory.GetFiles(@"C:\devkitPro\libogc\lib\cube"))
                 //foreach (var f in Directory.GetFiles(@"C:\devkitPro\devkitPPC\powerpc-eabi\lib"))
@@ -260,8 +260,6 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 //elfs.AddRange(FighterFunction.LibArchive.GetElfs(@"C:\devkitPro\devkitPPC\lib\gcc\powerpc-eabi\10.2.0\libgcc.a"));
                 //elfs.AddRange(FighterFunction.LibArchive.GetElfs(@"C:\Users\ploaj\Desktop\Modlee\libgc\MemCardDemo\libogc.a"));
                 var lelf = GenerateLinkedElf(elfs, fightFuncTable, linkFile, quiet);
-                // TODO: remove
-                function = CompileInput(inputs.ToArray(), fightFuncTable, linkFile, quiet, disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debugSymbols);
                 
                 // check for special attribute symbol
                 if (ftData != null)
@@ -297,10 +295,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
 
-                    // TODO: remove
-                    //var relocFunc = CompileInput(f.Item2.ToArray(), fightFuncTable, linkFile, quiet, disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debugSymbols);
-                    
-                    var elfs = CompileElfs(f.Item2.ToArray(), disableWarnings, clean, opLevel);
+                    var elfs = CompileElfs(f.Item2.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet);
                     var lelf = GenerateLinkedElf(elfs, fightFuncTable, linkFile, quiet);
 
                     // check for special attribute symbol
@@ -356,7 +351,6 @@ and injects it into PlMan.dat with the symbol name itFunction";
         }
 
 
-        // TODO: remove
         /// <summary>
         /// 
         /// </summary>
@@ -364,20 +358,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <param name="fightFuncTable"></param>
         /// <param name="quiet"></param>
         /// <returns></returns>
-        private static HSDAccessor CompileInput(string[] inputs, string[] funcTable, LinkFile link, bool quiet, bool disableWarnings, bool clean, int optimizationLevel = 2, string[] includes = null, string buildPath = null, bool debugSymbols = false)
-        {
-            var elfFiles = Compiling.Compile(inputs, disableWarnings, clean, optimizationLevel, includes, buildPath, debugSymbols, quiet).ToArray();
-            return RelocELF.GenerateFunctionDAT(elfFiles, link, funcTable, !clean, quiet);
-        }
-        
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="input"></param>
-        /// <param name="fightFuncTable"></param>
-        /// <param name="quiet"></param>
-        /// <returns></returns>
-        private static List<RelocELF> CompileElfs(string[] inputs, bool disableWarnings, bool clean, int optimizationLevel = 2, string[] includes = null, string buildPath = null, bool debug = false)
+        private static List<RelocELF> CompileElfs(string[] inputs, bool disableWarnings, bool clean, int optimizationLevel = 2, string[] includes = null, string buildPath = null, bool debug = false, bool quiet = true)
         {
             return Compiling.Compile(inputs, disableWarnings, clean, optimizationLevel, includes, buildPath, debug, quiet);
         }

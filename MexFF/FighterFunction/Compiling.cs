@@ -14,39 +14,44 @@ namespace MexTK.FighterFunction
             bool isWin32 = Environment.OSVersion.Platform == PlatformID.Win32NT;
             if (inputs.Length == 0)
                 return null;
-
+            
             var devkitpath = isWin32 ? StandardPath : Environment.GetEnvironmentVariable("DEVKITPPC");
+            
+            if (string.IsNullOrEmpty(devkitpath))
+                throw new FileNotFoundException("DEVKITPPC path not set");
+
+            // Set build path to ./build on first input path if not passed
+            buildPath = buildPath ?? Path.Combine(Path.GetDirectoryName(inputs[0]), "build");
+
+            // Create Build Path if not exists
+            if (!Directory.Exists(buildPath)) Directory.CreateDirectory(buildPath);
+            
+            // Add build path as include
+            var includeList = new List<String>();
+            includeList.Add(buildPath);  
+            if (includes != null) includeList.AddRange(includes);
+
+            devkitpath = isWin32 ? devkitpath.Replace("/opt/", "C:/") : devkitpath;
             var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc");
             var gppPath = Path.Combine(devkitpath, "bin/powerpc-eabi-g++");
             
-            buildPath = buildPath ?? Path.Combine(Path.GetDirectoryName(inputs[0]), "build");
-
-            var includeList = new List<String>();
-            // Add build path as include
-            includeList.Add(buildPath); 
-            if (includes != null) includeList.AddRange(includes);
-
-            if (!Directory.Exists(buildPath)) Directory.CreateDirectory(buildPath);
-            
             if (isWin32)
             {
-                devkitpath = devkitpath.Replace("/opt/", "C:/");
-
-                if (string.IsNullOrEmpty(devkitpath))
-                    throw new FileNotFoundException("DEVKITPPC path not set");
-
                 gccPath = Path.Combine(gccPath, ".exe");
+                gppPath = Path.Combine(gppPath, ".exe");
 
                 if (!File.Exists(gccPath))
                     gccPath = gccPath.Replace("C:/", "");
-
-                if (!File.Exists(gccPath))
-                    throw new FileNotFoundException("powerpc-eabi-gcc bin not found at " + gccPath);
                 
                 if (!File.Exists(gppPath))
-                    throw new FileNotFoundException("powerpc-eabi-g++ bin not found at " + gppPath);
-
+                    gppPath = gppPath.Replace("C:/", "");
             }
+            
+            if (!File.Exists(gccPath))
+                throw new FileNotFoundException("powerpc-eabi-gcc bin not found at " + gccPath);
+                
+            if (!File.Exists(gppPath))
+                throw new FileNotFoundException("powerpc-eabi-g++ bin not found at " + gppPath);
                 
             List<RelocELF> elfs = new List<RelocELF>();
 
@@ -114,6 +119,11 @@ namespace MexTK.FighterFunction
                 }
             }
 
+            if (clean)
+            {
+                if (Directory.Exists(buildPath)) Directory.Delete(buildPath);
+            }
+            
             return elfs;
         }
     }
