@@ -50,6 +50,8 @@ Options:
     -ow                                   : automatically overwrite files if they exists
     -w                                    : show compilation warnings
     -v                                    : Verbose Mode (Console prints more information)
+    -b (path/to/build)                    : path to output build (.o/.d files) files to.
+    -inc (path/to/include/1) (path/2)     : specify libraries for compiler to include.
     -d                                    : debug symbols added to output
     -c                                    : deletes .o files after compilation
     -l (file.link)                        : specify external link file
@@ -77,12 +79,14 @@ and injects it into PlMan.dat with the symbol name itFunction";
             string symbolName = "";
             string datFile = null;
             string[] fightFuncTable = null;
+            string buildPath = null;
             bool quiet = true;
             bool yesOverwrite = false;
             bool disableWarnings = true;
             bool clean = false;
             bool debug = false;
             int opLevel = 2;
+            List<string> includes = new List<string>();
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -91,6 +95,15 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     for (int j = i + 1; j < args.Length; j++)
                         if (File.Exists(args[j]))
                             inputs.Add(Path.GetFullPath(args[j]));
+                        else
+                            break;
+                }
+                
+                if (args[i] == "-inc")
+                {
+                    for (int j = i + 1; j < args.Length; j++)
+                        if (Directory.Exists(args[j]))
+                            includes.Add(Path.GetFullPath(args[j]));
                         else
                             break;
                 }
@@ -137,6 +150,9 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 if (args[i] == "-v")
                     quiet = false;
 
+                if (args[i] == "-b" && i + 1 < args.Length)
+                    buildPath = Path.GetFullPath(args[i + 1]);
+                
                 if (args[i] == "-l" && i + 1 < args.Length)
                     linkFile.LoadLinkFile(args[i + 1]);
             }
@@ -231,7 +247,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
             // single table compile
             if (itemInputs.Count == 0)
             {
-                var elfs = CompileElfs(inputs.ToArray(), disableWarnings, clean, opLevel);
+                var elfs = CompileElfs(inputs.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet);
 
                 //foreach (var f in Directory.GetFiles(@"C:\devkitPro\libogc\lib\cube"))
                 //foreach (var f in Directory.GetFiles(@"C:\devkitPro\devkitPPC\powerpc-eabi\lib"))
@@ -244,7 +260,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 //elfs.AddRange(FighterFunction.LibArchive.GetElfs(@"C:\devkitPro\devkitPPC\lib\gcc\powerpc-eabi\10.2.0\libgcc.a"));
                 //elfs.AddRange(FighterFunction.LibArchive.GetElfs(@"C:\Users\ploaj\Desktop\Modlee\libgc\MemCardDemo\libogc.a"));
                 var lelf = GenerateLinkedElf(elfs, fightFuncTable, linkFile, quiet);
-
+                
                 // check for special attribute symbol
                 if (ftData != null)
                 {
@@ -279,7 +295,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
 
-                    var elfs = CompileElfs(f.Item2.ToArray(), disableWarnings, clean, opLevel);
+                    var elfs = CompileElfs(f.Item2.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet);
                     var lelf = GenerateLinkedElf(elfs, fightFuncTable, linkFile, quiet);
 
                     // check for special attribute symbol
@@ -342,9 +358,9 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <param name="fightFuncTable"></param>
         /// <param name="quiet"></param>
         /// <returns></returns>
-        private static List<RelocELF> CompileElfs(string[] inputs, bool disableWarnings, bool clean, int optimizationLevel = 2)
+        private static List<RelocELF> CompileElfs(string[] inputs, bool disableWarnings, bool clean, int optimizationLevel = 2, string[] includes = null, string buildPath = null, bool debug = false, bool quiet = true)
         {
-            return Compiling.Compile(inputs, disableWarnings, clean, optimizationLevel);
+            return Compiling.Compile(inputs, disableWarnings, clean, optimizationLevel, includes, buildPath, debug, quiet);
         }
 
         /// <summary>
