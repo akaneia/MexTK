@@ -54,6 +54,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Commands\Animation\CmdFighterAnimInject.cs" />
     <Compile Include="Commands\Animation\CmdRetargetAnimation.cs" />
     <Compile Include="Commands\CmdAddSymbol.cs" />
     <Compile Include="Commands\CmdFighterFunction.cs" />
@@ -66,6 +67,7 @@
     <Compile Include="Commands\MEX\CmdCspCompressor.cs" />
     <Compile Include="Commands\MEX\CmdMoveLogicTemplateGenerator.cs" />
     <Compile Include="FighterFunction\Compiling.cs" />
+    <Compile Include="FighterFunction\LibArchive.cs" />
     <Compile Include="FighterFunction\LinkFile.cs" />
     <Compile Include="FighterFunction\Enums.cs" />
     <Compile Include="FighterFunction\MapFile.cs" />
@@ -79,6 +81,7 @@
     <Compile Include="Tools\FileTools.cs" />
     <Compile Include="Tools\ImageTools.cs" />
     <Compile Include="Tools\KeyReducer.cs" />
+    <Compile Include="Tools\MayaAnim.cs" />
     <Compile Include="Tools\SkeletonPorter.cs" />
   </ItemGroup>
   <ItemGroup>

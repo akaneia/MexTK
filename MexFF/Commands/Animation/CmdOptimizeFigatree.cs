@@ -64,7 +64,7 @@ namespace MexTK.Commands
                 {
                     foreach(var t in n.Tracks)
                     {
-                        var fobj = t.FOBJ;
+                        var fobj = t.ToFOBJ();
                         var keys = fobj.GetDecodedKeys();
 
                         if(keys.Count > targetTree.FrameCount * 0.8f)
@@ -72,7 +72,7 @@ namespace MexTK.Commands
                             var before = keys.Count;
                             keys = Tools.LineSimplification.Simplify(keys, 0.025f);
                             fobj.SetKeys(keys, fobj.JointTrackType);
-                            t.FOBJ = fobj;
+                            t.FromFOBJ(fobj);
 
                             keydecrease += before - keys.Count;
                         }

@@ -18,6 +18,7 @@ namespace MexTK.FighterFunction
             var devkitpath = isWin32 ? StandardPath : Environment.GetEnvironmentVariable("DEVKITPPC");
             var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc");
             var gppPath = Path.Combine(devkitpath, "bin/powerpc-eabi-g++");
+            
             buildPath = buildPath ?? Path.Combine(Path.GetDirectoryName(inputs[0]), "build");
 
             var includeList = new List<String>();
@@ -57,58 +58,62 @@ namespace MexTK.FighterFunction
             {
                 var ext = Path.GetExtension(input).ToLower();
                 var isCpp = ext.Equals(".cpp");
-
-                isCppProject = isCppProject || isCpp;
                 
+                isCppProject = isCppProject || isCpp;
+
+                if (ext.Equals(".a"))
+                    elfs.AddRange(LibArchive.GetElfs(input));
+
                 if (ext.Equals(".o"))
                     elfs.Add(new RelocELF(File.ReadAllBytes(input)));
-                else if (ext.Equals(".c") || isCpp)
+
+                if (ext.Equals(".c") || isCpp)
                 {
-                    var outputPath = Path.Combine(buildPath, Path.GetFileNameWithoutExtension(input) + ".o");
-                    var outputPathD = Path.Combine(buildPath, Path.GetFileNameWithoutExtension(input) + ".d");
-
-                    Process p = new Process();
-                    
-                    p.StartInfo.UseShellExecute = false;
-                    p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
-                    p.StartInfo.RedirectStandardOutput = true;
-                    // Use g++ or gcc as needed
-                    p.StartInfo.FileName = isCpp ? gppPath : gccPath;
-
-                    
-                    var includesStr = "";
-                    if (includeList.Count > 0)
+                    using (Process p = new Process())
                     {
-                        includesStr = $"-I{String.Join(" -I", includeList.ToArray())}";
-                    }
-                    
-                    // add -g for debug symbols
-                    p.StartInfo.Arguments = $"-MMD -MP -MF \"{outputPathD}\" {(debugSymbols ? "-g" : "")} {(disableWarnings ? "-w" : "")} -O{optimizationLevel} -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float   {includesStr} -c \"{input}\" -o \"{outputPath}\" -fpermissive";
+                        var outputPath = Path.Combine(buildPath, Path.GetFileNameWithoutExtension(input) + ".o");
+                        var outputPathD = Path.Combine(buildPath, Path.GetFileNameWithoutExtension(input) + ".d");
+                        
+                        p.StartInfo.UseShellExecute = false;
+                        p.StartInfo.WorkingDirectory = Path.GetDirectoryName(input);
+                        p.StartInfo.RedirectStandardOutput = true;
+                        // Use g++ or gcc as needed
+                        p.StartInfo.FileName = isCpp ? gppPath : gccPath;
+                        
+                        var includesStr = "";
+                        if (includeList.Count > 0)
+                        {
+                            includesStr = $"-I{String.Join(" -I", includeList.ToArray())}";
+                        }
+                        
+                        // add -g for debug symbols
+                        p.StartInfo.Arguments = $"-MMD -MP -MF \"{outputPathD}\" {(debugSymbols ? "-g" : "")} {(disableWarnings ? "-w" : "")} -O{optimizationLevel} -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float   {includesStr} -c \"{input}\" -o \"{outputPath}\" -fpermissive";
 
-                    if (!quiet)
-                    {
-                        Console.WriteLine($"{p.StartInfo.FileName} {p.StartInfo.Arguments}");
-                    }
-                    
-                    p.Start();
+                        if (!quiet)
+                        {
+                            Console.WriteLine($"{p.StartInfo.FileName} {p.StartInfo.Arguments}");
+                        }
+                        p.Start();
 
-                    p.WaitForExit();
+                        p.WaitForExit();
 
-                    if (p.ExitCode != 0 || !File.Exists(outputPath))
-                    {
-                        Console.WriteLine();
-                        throw new InvalidDataException($"{Path.GetFileName(input)} failed to compile, see output above for details");
-                    }
+                        if (p.ExitCode != 0 || !File.Exists(outputPath))
+                        {
+                            Console.WriteLine();
+                            throw new InvalidDataException($"{Path.GetFileName(input)} failed to compile, see output above for details");
+                        }
 
-                    elfs.Add(new RelocELF(File.ReadAllBytes(outputPath)));
+                        elfs.Add(new RelocELF(File.ReadAllBytes(outputPath)));
 
-                    if (clean)
-                    {
-                        File.Delete(outputPath);
-                        File.Delete(outputPathD);
+                        if (clean)
+                        {
+                            File.Delete(outputPath);
+                            File.Delete(outputPathD);
+                        }
                     }
                 }
             }
+
             return elfs;
         }
     }
