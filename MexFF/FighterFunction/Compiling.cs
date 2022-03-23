@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 
 namespace MexTK.FighterFunction
 {
@@ -31,14 +32,24 @@ namespace MexTK.FighterFunction
             includeList.Add(buildPath);  
             if (includes != null) includeList.AddRange(includes);
 
+            // To make things simple, always include MexTK's path
+            var exePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            if (!includeList.Contains(exePath))
+                includeList.Add(exePath);
+
+            // and the include path in mextk
+            var exePathInclude = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "include");
+            if (!includeList.Contains(exePathInclude))
+                includeList.Add(exePathInclude);
+
             devkitpath = isWin32 ? devkitpath.Replace("/opt/", "C:/") : devkitpath;
             var gccPath = Path.Combine(devkitpath, "bin/powerpc-eabi-gcc");
             var gppPath = Path.Combine(devkitpath, "bin/powerpc-eabi-g++");
             
             if (isWin32)
             {
-                gccPath = Path.Combine(gccPath, ".exe");
-                gppPath = Path.Combine(gppPath, ".exe");
+                gccPath = gccPath + ".exe";
+                gppPath = gppPath + ".exe";
 
                 if (!File.Exists(gccPath))
                     gccPath = gccPath.Replace("C:/", "");

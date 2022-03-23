@@ -17,7 +17,7 @@ namespace MexTK.Commands.Animation
         /// <returns></returns>
         public string Name()
         {
-            return "Reorient Figatree";
+            return "Reorient Figatree (old/outdated)";
         }
 
         /// <summary>

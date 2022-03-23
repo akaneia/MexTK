@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using MexTK.Commands;
 using MexTK.Commands.Animation;
 using MexTK.Commands.MEX;
@@ -11,29 +13,47 @@ namespace MexTK
         private static List<ICommand> Commands = new List<ICommand>()
         {
             new CmdFighterFunction(),
-            new CmdCspCompressor(),
-            new CmdPortFigatree(),
             new CmdAddSymbol(),
             new CmdTrimDAT(),
+            new CmdCspCompressor(),
+            new CmdPortFigatree(),
             new CmdRetargetAnimation(),
             new CmdOptimizeFigatree(),
-            new CmdMoveLogicTemplateGenerator(),
-            new CmdGenerateDatFile(),
+            // new CmdMoveLogicTemplateGenerator(),
+            // new CmdGenerateDatFile(),
             new CmdDebugSymbols(),
-            new CmdFighterAnimInject()
+            // new CmdFighterAnimInject()
         };
 
         static void Main(string[] args)
         {
             if (args.Length > 0)
             {
-                foreach (var cmd in Commands)
+                if (args[0] == "-h")
                 {
-                    if (args[0].Equals(cmd.ID()))
+                    foreach (var cmd in Commands)
                     {
-                        if (!cmd.DoIt(args))
-                            PrintInstruction();
-                        break;
+                        if (args[1].Equals(cmd.ID()))
+                        {
+                            Console.WriteLine(cmd.Help());
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var cmd in Commands)
+                    {
+                        if (args[0].Equals(cmd.ID()))
+                        {
+                            if (!cmd.DoIt(args))
+                            {
+                                Console.WriteLine("Command Failed");
+                                Console.WriteLine();
+                                Console.WriteLine(cmd.Help());
+                            }
+                            break;
+                        }
                     }
                 }
             }
@@ -58,14 +78,15 @@ namespace MexTK
         {
             Console.WriteLine(@"MexTK");
 
+            Console.WriteLine("use -h for more info");
+            Console.WriteLine("Ex: MexTK -h -ff");
+
             Console.WriteLine();
 
+            Console.WriteLine($"{"Commands:", -20}| {"Function Name:", -20}");
             foreach (var cmd in Commands)
             {
-                Console.WriteLine($"{cmd.ID()} {cmd.Name()}:".PadRight(20, '-'));
-                Console.WriteLine();
-                Console.WriteLine(cmd.Help());
-                Console.WriteLine();
+                Console.WriteLine($"{cmd.ID(), -20}| {cmd.Name()}");
             }
         }
     }

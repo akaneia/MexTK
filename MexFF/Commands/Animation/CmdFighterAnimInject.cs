@@ -109,7 +109,7 @@ namespace MexTK.Commands.Animation
                         {
                             if (c.SymbolName != null && !string.IsNullOrEmpty(c.SymbolName.Value))
                             {
-                                var sizeoffset = animManager.GetSizeOffset(c.SymbolName.Value);
+                                var sizeoffset = animManager.GetOffsetSize(c.SymbolName.Value);
                                 c.AnimationOffset = sizeoffset.Item1;
                                 c.AnimationSize = sizeoffset.Item2;
                             }

@@ -199,6 +199,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
                  && itemInputs.Count == 0)
                 || args.Length == 0)
             {
+                Console.WriteLine("No input files were given");
                 return false;
             }
 
