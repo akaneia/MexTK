@@ -12,7 +12,14 @@ namespace MexTK.FighterFunction
 
         public static List<RelocELF> Compile(string[] inputs, bool disableWarnings, bool clean, int optimizationLevel = 2, string[] includes = null, string buildPath = null, bool debugSymbols = false, bool quiet = true)
         {
-            bool isWin32 = Environment.OSVersion.Platform == PlatformID.Win32NT;
+
+            //Setting the variable directly by the comparison between Platform and PlatformID for some reason makes linux return an error, so I moved the comparison to an if statement
+            bool isWin32;
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                isWin32 = true;
+            else
+                isWin32 = false;
+
             if (inputs.Length == 0)
                 return null;
             
