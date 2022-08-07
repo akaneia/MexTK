@@ -68,6 +68,7 @@
     <Compile Include="Commands\MEX\CmdMoveLogicTemplateGenerator.cs" />
     <Compile Include="FighterFunction\Compiling.cs" />
     <Compile Include="FighterFunction\LibArchive.cs" />
+    <Compile Include="FighterFunction\LinkedELF.cs" />
     <Compile Include="FighterFunction\LinkFile.cs" />
     <Compile Include="FighterFunction\Enums.cs" />
     <Compile Include="FighterFunction\MapFile.cs" />

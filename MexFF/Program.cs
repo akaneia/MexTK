@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using MexTK.Commands;
 using MexTK.Commands.Animation;
 using MexTK.Commands.MEX;

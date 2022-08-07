@@ -14,6 +14,8 @@ namespace MexTK.Commands
 {
     public class CmdFighterFunction : ICommand
     {
+        public static string PARAM_EXT_SYMBOL = "param_ext";
+
         /// <summary>
         /// 
         /// </summary>
@@ -55,6 +57,7 @@ Options:
     -d                                    : debug symbols added to output
     -c                                    : deletes .o files after compilation
     -l (file.link)                        : specify external link file
+    -cpp                                  : use c++ compile options
 
 Ex: mexff.exe -i 'main.c' -o 'ftFunction.dat' -q
 Compile 'main.c' and outputs 'ftFunction.dat' in quiet mode
@@ -85,8 +88,10 @@ and injects it into PlMan.dat with the symbol name itFunction";
             bool disableWarnings = true;
             bool clean = false;
             bool debug = false;
+            bool isCPP = false;
             int opLevel = 2;
             List<string> includes = new List<string>();
+            string filter = "*.c";
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -95,6 +100,8 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     for (int j = i + 1; j < args.Length; j++)
                         if (File.Exists(args[j]))
                             inputs.Add(Path.GetFullPath(args[j]));
+                        else if (Directory.Exists(Path.GetFullPath(args[j])))
+                            inputs.AddRange(Directory.GetFiles(Path.GetFullPath(args[j]), filter, SearchOption.AllDirectories));
                         else
                             break;
                 }
@@ -104,6 +111,8 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     for (int j = i + 1; j < args.Length; j++)
                         if (Directory.Exists(args[j]))
                             includes.Add(Path.GetFullPath(args[j]));
+                        else if (Directory.Exists(args[j]))
+                            inputs.AddRange(Directory.GetFiles(Path.GetFullPath(args[j]), filter, SearchOption.AllDirectories));
                         else
                             break;
                 }
@@ -155,6 +164,9 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 
                 if (args[i] == "-l" && i + 1 < args.Length)
                     linkFile.LoadLinkFile(args[i + 1]);
+
+                if (args[i] == "-cpp")
+                    isCPP = true;
             }
 
             //
@@ -243,40 +255,27 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 ftData = ftdata;
 
             // static param table
-            var param_table = new string[] { "param_ext" };
+            var param_table = new string[] { PARAM_EXT_SYMBOL };
 
             // single table compile
             if (itemInputs.Count == 0)
             {
-                var elfs = CompileElfs(inputs.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet);
+                var elf = CompileElfs(inputs.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet, isCPP);
+                var lelf = GenerateLinkedElf(elf, fightFuncTable, linkFile, quiet);
 
-                //foreach (var f in Directory.GetFiles(@"C:\devkitPro\libogc\lib\cube"))
-                //foreach (var f in Directory.GetFiles(@"C:\devkitPro\devkitPPC\powerpc-eabi\lib"))
-                //{
-                //    if (Path.GetExtension(f).Equals(".a"))
-                //        elfs.AddRange(FighterFunction.LibArchive.GetElfs(f));
-                //    if (Path.GetExtension(f).Equals(".o"))
-                //        elfs.Add(new RelocELF(File.ReadAllBytes(f)));
-                //}
-                //elfs.AddRange(FighterFunction.LibArchive.GetElfs(@"C:\devkitPro\devkitPPC\lib\gcc\powerpc-eabi\10.2.0\libgcc.a"));
-                //elfs.AddRange(FighterFunction.LibArchive.GetElfs(@"C:\Users\ploaj\Desktop\Modlee\libgc\MemCardDemo\libogc.a"));
-                var lelf = GenerateLinkedElf(elfs, fightFuncTable, linkFile, quiet);
-                
                 // check for special attribute symbol
                 if (ftData != null)
                 {
-                    foreach (var elf in elfs)
+                    if (elf.SymbolEnumerator.Any(e => e.Symbol.Equals("param_ext")))
                     {
-                        if (elf.SymbolEnumerator.Any(e => e.Symbol.Equals("param_ext")))
-                        {
-                            var special_attr = CmdGenerateDatFile.BuildDatFile(elf, param_table);
+                        var lelf_param = GenerateLinkedElf(elf, param_table, linkFile, quiet);
 
-                            if (special_attr != null && special_attr.Roots.Count > 0 && special_attr["param_ext"] != null)
-                            {
-                                // Console.WriteLine("Found Param_Ext... adding to fighter data...");
-                                ftData.Attributes2 = special_attr["param_ext"].Data;
-                                break;
-                            }
+                        var special_attr = lelf_param.BuildDatFile(param_table);
+
+                        if (special_attr != null && special_attr.Roots.Count > 0 && special_attr[PARAM_EXT_SYMBOL] != null)
+                        {
+                            // Console.WriteLine("Found Param_Ext... adding to fighter data...");
+                            ftData.Attributes2 = special_attr["param_ext"].Data;
                         }
                     }
                 }
@@ -296,24 +295,22 @@ and injects it into PlMan.dat with the symbol name itFunction";
                     if (4 + 4 * (f.Item1 + 1) > function._s.Length)
                         function._s.Resize(4 + 4 * (f.Item1 + 1));
 
-                    var elfs = CompileElfs(f.Item2.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet);
-                    var lelf = GenerateLinkedElf(elfs, fightFuncTable, linkFile, quiet);
+                    var elf = CompileElfs(f.Item2.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet, isCPP);
+                    var lelf = GenerateLinkedElf(elf, fightFuncTable, linkFile, quiet);
 
                     // check for special attribute symbol
                     if (ftData != null)
                     {
-                        foreach (var elf in elfs)
+                        if (elf.SymbolEnumerator.Any(e => e.Symbol.Equals("param_ext")))
                         {
-                            if (elf.SymbolEnumerator.Any(e => e.Symbol.Equals("param_ext")))
-                            {
-                                var special_attr = CmdGenerateDatFile.BuildDatFile(elf, param_table);
+                            var lelf_param = GenerateLinkedElf(elf, param_table, linkFile, quiet);
 
-                                if (special_attr != null && special_attr.Roots.Count > 0 && special_attr["param_ext"] != null)
-                                {
-                                    // Console.WriteLine("Found Param_Ext... adding to fighter data...");
-                                    ftData.Articles.Articles[f.Item1].ParametersExt = special_attr["param_ext"].Data;
-                                    break;
-                                }
+                            var special_attr = lelf_param.BuildDatFile(param_table);
+
+                            if (special_attr != null && special_attr.Roots.Count > 0 && special_attr[PARAM_EXT_SYMBOL] != null)
+                            {
+                                // Console.WriteLine("Found Param_Ext... adding to item data...");
+                                ftData.Articles.Articles[f.Item1].ParametersExt = special_attr["param_ext"].Data;
                             }
                         }
                     }
@@ -359,9 +356,9 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <param name="fightFuncTable"></param>
         /// <param name="quiet"></param>
         /// <returns></returns>
-        private static List<RelocELF> CompileElfs(string[] inputs, bool disableWarnings, bool clean, int optimizationLevel = 2, string[] includes = null, string buildPath = null, bool debug = false, bool quiet = true)
+        private static RelocELF CompileElfs(string[] inputs, bool disableWarnings, bool clean, int optimizationLevel = 2, string[] includes = null, string buildPath = null, bool debug = false, bool quiet = true, bool isCPP = false)
         {
-            return Compiling.Compile(inputs, disableWarnings, clean, optimizationLevel, includes, buildPath, debug, quiet);
+            return Compiling.Compile(inputs, disableWarnings, clean, optimizationLevel, includes, buildPath, debug, quiet, isCPP);
         }
 
         /// <summary>
@@ -371,9 +368,9 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <param name="fightFuncTable"></param>
         /// <param name="quiet"></param>
         /// <returns></returns>
-        private static LinkedELF GenerateLinkedElf(List<RelocELF> elfFiles, string[] funcTable, LinkFile link, bool quiet)
+        private static LinkedELF GenerateLinkedElf(RelocELF elfFile, string[] funcTable, LinkFile link, bool quiet)
         {
-            return LinkELFs(elfFiles, link, funcTable, quiet);
+            return new LinkedELF(elfFile, link, funcTable, quiet);
         }
 
         /// <summary>
@@ -385,7 +382,7 @@ and injects it into PlMan.dat with the symbol name itFunction";
         /// <returns></returns>
         private static HSDAccessor GenerateFunctionData(LinkedELF lelf, LinkFile link, string[] funcTable, bool quiet, bool debug)
         {
-            return GenerateFunctionDAT(lelf, link, funcTable, debug, quiet);
+            return lelf.GenerateFunctionDAT(link, funcTable, debug, quiet);
         }
 
 

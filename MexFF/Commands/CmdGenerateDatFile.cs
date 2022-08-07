@@ -81,13 +81,16 @@ namespace MexTK.Commands
             if (string.IsNullOrEmpty(output))
                 output = Path.Combine(Path.GetDirectoryName(inputs[0]), Path.GetFileName(inputs[0]).Replace(Path.GetExtension(inputs[0]), ".dat"));
 
-            // compile functions
+            // compile code
             var elfs = Compiling.Compile(inputs.ToArray(), disableWarnings, clean, opLevel);
 
-            var lelf = LinkELFs(elfs, linkFile, symbols.ToArray(), quiet);
+            // link elfs
+            var lelf = new LinkedELF(elfs, linkFile, symbols.ToArray(), quiet);
 
-            var file = BuildDatFile(lelf);
+            // generate file
+            var file = lelf.BuildDatFile();
 
+            // check if file was generated
             if (file == null)
                 return false;
 
@@ -115,133 +118,6 @@ namespace MexTK.Commands
             return true;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="lelf"></param>
-        /// <param name="symbols"></param>
-        /// <returns></returns>
-        public static HSDRawFile BuildDatFile(RelocELF elf, IEnumerable<string> symbols = null)
-        {
-            Dictionary<SymbolData, HSDAccessor> symbolToAccessor = new Dictionary<SymbolData, HSDAccessor>();
-
-            if (symbols == null)
-                symbols = elf.SymbolEnumerator.Select(e => e.Symbol);
-
-            // convert to accessors
-            foreach (var d in elf.SymbolEnumerator)
-            {
-                symbolToAccessor.Add(d, new HSDAccessor() { _s = new HSDStruct(d.Data) });
-            }
-
-            // check relocations
-            foreach (var d in elf.SymbolEnumerator)
-            {
-                foreach (var r in d.Relocations)
-                {
-                    if (r.Type == RelocType.R_PPC_ADDR32)
-                    {
-                        if (!symbolToAccessor.ContainsKey(d))
-                        {
-                            //Console.WriteLine($"Warning: cannot relocate symbol \"{d.Symbol}\"");
-                        }
-                        else
-                        if (!symbolToAccessor.ContainsKey(r.Symbol))
-                        {
-                            //Console.WriteLine($"Warning: cannot relocate symbol \"{r.Symbol.Symbol}\"");
-                        }
-                        else
-                        {
-                            var access = symbolToAccessor[d];
-                            var symbol = symbolToAccessor[r.Symbol];
-                            access._s.SetReference((int)r.Offset, symbol);
-                        }
-                    }
-                    else
-                    {
-                        // TODO relocation error checking
-                        //Console.WriteLine($"DAT Files don't support relocation type {r.Type}");
-                        //return null;
-                    }
-                }
-            }
-
-            // generate dat file
-            HSDRawFile file = new HSDRawFile();
-
-            foreach (var v in symbols)
-            {
-                var data = elf.SymbolEnumerator.First(e => e.Symbol.Equals(v));
-
-                Console.WriteLine("Found " + v + ": " + !(data == null));
-
-                if (data != null)
-                    file.Roots.Add(new HSDRootNode()
-                    {
-                        Name = v,
-                        Data = symbolToAccessor[data]
-                    });
-            }
-
-            return file;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="lelf"></param>
-        /// <param name="symbols"></param>
-        /// <returns></returns>
-        public static HSDRawFile BuildDatFile(LinkedELF lelf, IEnumerable<string> symbols = null)
-        {
-            Dictionary<SymbolData, HSDAccessor> symbolToAccessor = new Dictionary<SymbolData, HSDAccessor>();
-
-            if (symbols == null)
-                symbols = lelf.AllSymbols.Select(e => e.Symbol);
-
-            // convert to accessors
-            foreach (var d in lelf.AllSymbols)
-            {
-                symbolToAccessor.Add(d, new HSDAccessor() { _s = new HSDStruct(d.Data) });
-            }
-
-            // check relocations
-            foreach (var d in lelf.AllSymbols)
-            {
-                foreach (var r in d.Relocations)
-                {
-                    if (r.Type == RelocType.R_PPC_ADDR32)
-                    {
-                        symbolToAccessor[d]._s.SetReference((int)r.Offset, symbolToAccessor[r.Symbol]);
-                    }
-                    else
-                    {
-                        // TODO relocation error checking
-                        //Console.WriteLine($"DAT Files don't support relocation type {r.Type}");
-                        //return null;
-                    }
-                }
-            }
-
-            // generate dat file
-            HSDRawFile file = new HSDRawFile();
-
-            foreach (var v in symbols)
-            {
-                var data = lelf.AllSymbols.Find(e => e.Symbol.Equals(v));
-
-                Console.WriteLine("Found " + v + ": " + !(data == null));
-
-                if (data != null)
-                    file.Roots.Add(new HSDRootNode()
-                    {
-                        Name = v,
-                        Data = symbolToAccessor[data]
-                    });
-            }
-
-            return file;
-        }
 
         public string Help()
         {
