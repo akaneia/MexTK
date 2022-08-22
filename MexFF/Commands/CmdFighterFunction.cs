@@ -141,6 +141,9 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 if (args[i] == "-w")
                     disableWarnings = false;
 
+                if (args[i] == "-c")
+                    clean = true;
+                    
                 if (args[i] == "-d")
                     debug = true;
 
