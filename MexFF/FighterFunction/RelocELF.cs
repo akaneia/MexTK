@@ -214,7 +214,7 @@ namespace MexTK.FighterFunction
                         {
                             symbolData = new byte[section.Data.Length];
 #if DEBUG
-                            // Console.WriteLine($"{section.Name} {(Sections[sym.st_shndx].sh_offset + sym.st_value).ToString("X")} {sym.st_size} {sym.st_value} {symbolData.Length} {Sections[sym.st_shndx].sh_type}");
+                            //Console.WriteLine($"{section.Name} {(Sections[sym.st_shndx].sh_offset + sym.st_value).ToString("X")} {sym.st_size} {sym.st_value} {symbolData.Length} {Sections[sym.st_shndx].sh_type}");
 #endif
                         }
                         else
@@ -256,7 +256,6 @@ namespace MexTK.FighterFunction
                             //r.Seek(Sections[sym.st_shndx].sh_offset + +sym.st_value);
                             //ParseDebugLine(r);
                         }
-
 #endif
                     }
 

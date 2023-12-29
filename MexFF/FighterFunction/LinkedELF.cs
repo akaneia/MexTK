@@ -12,6 +12,8 @@ namespace MexTK.FighterFunction
     {
         private Dictionary<string, SymbolData> SymbolToData = new Dictionary<string, SymbolData>();
 
+        private Dictionary<uint, SymbolData> PatchToData = new Dictionary<uint, SymbolData>();
+
         private List<SymbolData> AllSymbols = new List<SymbolData>();
 
         /// <summary>
@@ -26,27 +28,23 @@ namespace MexTK.FighterFunction
             // Grab Symbol Table Info
             Queue<SymbolData> symbolQueue = new Queue<SymbolData>();
 
-            // Gather the root symbols needed for function table
-            if (functions == null)
+            // scan for patches
+            foreach (var sym in elf.SymbolSections)
             {
-                Console.WriteLine("No function table entered: defaulting to patching");
-
-                foreach (var sym in elf.SymbolSections)
+                var m = System.Text.RegularExpressions.Regex.Matches(sym.Symbol, @"0[xX][0-9a-fA-F]+");
+                if (m.Count > 0)
                 {
-                    var m = System.Text.RegularExpressions.Regex.Matches(sym.Symbol, @"0[xX][0-9a-fA-F]+");
-                    if (m.Count > 0)
+                    uint loc;
+                    if (uint.TryParse(m[0].Value.ToLower().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out loc))
                     {
-                        uint loc;
-                        if (uint.TryParse(m[0].Value.ToLower().Replace("0x", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out loc))
-                        {
-                            SymbolToData.Add(loc.ToString("X"), sym);
-                            symbolQueue.Enqueue(sym);
-                        }
+                        PatchToData.Add(loc, sym);
+                        symbolQueue.Enqueue(sym);
                     }
-
                 }
             }
-            else
+
+            // Gather the root symbols needed for function table
+            if (functions != null)
             {
                 for (int i = 0; i < functions.Length; i++)
                 {
@@ -72,11 +70,12 @@ namespace MexTK.FighterFunction
                 var sym = symbolQueue.Dequeue();
 
                 // check if external symbol is found in link file
-                if (sym.External && !linkFiles.ContainsSymbol(CppSanatize(sym.Symbol)))
+                if (sym.External && linkFiles != null && !linkFiles.ContainsSymbol(CppSanatize(sym.Symbol)))
                     throw new Exception("Could not resolve external symbol " + sym.Symbol + " - " + sym.SectionName + " " + sym.External);
 
                 // inject static addresses from link file
-                if (linkFiles.TryGetSymbolAddress(CppSanatize(sym.Symbol), out uint addr) &&
+                if (linkFiles != null &&
+                    linkFiles.TryGetSymbolAddress(CppSanatize(sym.Symbol), out uint addr) &&
                     sym.Data.Length == 4 &&
                     sym.Data[0] == 0 && sym.Data[1] == 0 && sym.Data[2] == 0 && sym.Data[3] == 0)
                 {
@@ -191,13 +190,28 @@ namespace MexTK.FighterFunction
             // generate function table
             HSDStruct functionTable = new HSDStruct(8);
             var funcCount = 0;
-            var fl = functions.ToList();
-            foreach (var v in SymbolToData)
+
+            // patches overloads
+            foreach (var v in PatchToData)
             {
+                Console.WriteLine("Patching ->" + v.Key.ToString("X8") + " : " + v.Value.Symbol);
                 functionTable.Resize(8 * (funcCount + 1));
-                functionTable.SetInt32(funcCount * 8, fl.IndexOf(v.Key));
+                functionTable.SetInt32(funcCount * 8, (int)v.Key);
                 functionTable.SetInt32(funcCount * 8 + 4, (int)dataToOffset[v.Value]);
                 funcCount++;
+            }
+
+            // normal function table
+            if (functions != null)
+            {
+                var fl = functions.ToList();
+                foreach (var v in SymbolToData)
+                {
+                    functionTable.Resize(8 * (funcCount + 1));
+                    functionTable.SetInt32(funcCount * 8, fl.IndexOf(v.Key));
+                    functionTable.SetInt32(funcCount * 8 + 4, (int)dataToOffset[v.Value]);
+                    funcCount++;
+                }
             }
 
 
@@ -371,6 +385,76 @@ namespace MexTK.FighterFunction
             }
 
             return file;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="o"></param>
+        /// <param name="dataToLoc"></param>
+        private static void Write(MemoryStream o, SymbolData s, Dictionary<SymbolData, long> dataToLoc)
+        {
+            var start = o.Position;
+            dataToLoc.Add(s, start);
+            o.Write(s.Data, 0, s.Data.Length);
+            var end = o.Position;
+
+            foreach (var r in s.Relocations)
+            {
+                Console.WriteLine(r.Type + " " + r.Symbol.Symbol + " " + r.Offset.ToString("X2"));
+
+                if (!dataToLoc.ContainsKey(r.Symbol))
+                {
+                    o.Position = end;
+                    Write(o, r.Symbol, dataToLoc);
+                    end = o.Position;
+                }
+
+                int off = (int)(dataToLoc[r.Symbol] - (start + r.Offset));
+
+                o.Position = r.Offset;
+                switch (r.Type)
+                {
+                    case RelocType.R_PPC_LOCAL24PC:
+
+                        o.Position = r.Offset;
+                        var cur = ((o.ReadByte() & 0xFF) << 24) | ((o.ReadByte() & 0xFF) << 16) | ((o.ReadByte() & 0xFF) << 8) | ((o.ReadByte() & 0xFF));
+                        off = cur | (off & 0x03FFFFFC);
+
+                        o.Position = r.Offset;
+                        o.WriteByte((byte)((off >> 24) & 0xFF));
+                        o.WriteByte((byte)((off >> 16) & 0xFF));
+                        o.WriteByte((byte)((off >> 8) & 0xFF));
+                        o.WriteByte((byte)(off & 0xFF));
+
+                        break;
+                    case RelocType.R_PPC_GOT16:
+                        var d = (short)(off);
+                        o.WriteByte((byte)((d >> 8) & 0xFF));
+                        o.WriteByte((byte)(d & 0xFF));
+                        break;
+                }
+            }
+
+            o.Position = end;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public byte[] BuildGeckoCode()
+        {
+            using (MemoryStream o = new MemoryStream())
+            {
+                Dictionary<SymbolData, long> dataToLoc = new Dictionary<SymbolData, long>();
+                foreach (var s in SymbolToData)
+                {
+                    Write(o, s.Value, dataToLoc);
+                }
+
+                return o.ToArray();
+            }
         }
     }
 }

@@ -263,6 +263,22 @@ and injects it into PlMan.dat with the symbol name itFunction";
                 var elf = CompileElfs(inputs.ToArray(), disableWarnings, clean, opLevel, includes.ToArray(), buildPath, debug, quiet, isCPP);
                 var lelf = GenerateLinkedElf(elf, fightFuncTable, linkFile, quiet);
 
+                // check for gr_param struct
+                if (elf.SymbolEnumerator.Any(e => e.Symbol.Equals("yakumono_param")))
+                {
+                    var lelf_param = GenerateLinkedElf(elf, new string[] { "yakumono_param" }, linkFile, quiet);
+                    var special_attr = lelf_param.BuildDatFile(new string[] { "yakumono_param" });
+
+                    if (special_attr != null && special_attr.Roots.Count > 0 && special_attr["yakumono_param"] != null)
+                    {
+                        if (injectfile != null)
+                            DatTools.InjectSymbolIntoDat(injectfile, "yakumono_param", special_attr["yakumono_param"].Data);
+
+                        if (newfile != null)
+                            DatTools.InjectSymbolIntoDat(newfile, "yakumono_param", special_attr["yakumono_param"].Data);
+                    }
+                }
+
                 // check for special attribute symbol
                 if (ftData != null)
                 {

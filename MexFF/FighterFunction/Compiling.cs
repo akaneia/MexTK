@@ -107,6 +107,9 @@ namespace MexTK.FighterFunction
                         // add -g for debug symbols
                         p.StartInfo.Arguments = $"-MMD -MP -MF \"{outputPathD}\" {(debugSymbols ? "-g" : "")} {(disableWarnings ? "-w" : "")} -O{optimizationLevel} -Wall -DGEKKO -mogc -mcpu=750 -meabi -mhard-float {includesStr} -c \"{input}\" -o \"{outputPath}\" -fpermissive";// -Wno-unused-variable";
 
+
+                        System.Diagnostics.Debug.WriteLine(p.StartInfo.Arguments);
+
                         if (!quiet)
                         {
                             Console.WriteLine($"{p.StartInfo.FileName} {p.StartInfo.Arguments}");

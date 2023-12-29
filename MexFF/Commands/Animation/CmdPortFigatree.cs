@@ -107,53 +107,79 @@ ect...";
 
                         if (port != null && port.HasBone(boneName))
                         {
-                            var jobj = jobjsFrom[nodeIndex];
+                            var jobjFrom = jobjsFrom[nodeIndex];
+                            var jobjTo = jobjsTo[ind];
 
-                            FOBJ_Player rx = new FOBJ_Player(); rx.Keys.Add(new FOBJKey() { Value = jobj.RX, InterpolationType = GXInterpolationType.HSD_A_OP_CON });
-                            FOBJ_Player ry = new FOBJ_Player(); ry.Keys.Add(new FOBJKey() { Value = jobj.RY, InterpolationType = GXInterpolationType.HSD_A_OP_CON });
-                            FOBJ_Player rz = new FOBJ_Player(); rz.Keys.Add(new FOBJKey() { Value = jobj.RZ, InterpolationType = GXInterpolationType.HSD_A_OP_CON });
-                            
-                            HSD_Track rotXTrack = new HSD_Track();
-                            HSD_Track rotYTrack = new HSD_Track();
-                            HSD_Track rotZTrack = new HSD_Track();
-                            
-                            foreach (var track in n.Tracks)
+                            foreach (var t in n.Tracks)
                             {
-                                var fobj = track.ToFOBJ();
-                                var keys = fobj.GetDecodedKeys();
-                                switch (fobj.JointTrackType)
+                                var keys = t.GetKeys();
+                                foreach (var k in keys)
                                 {
-                                    case JointTrackType.HSD_A_J_ROTX:
-                                        rx.Keys = keys;
-                                        break;
-                                    case JointTrackType.HSD_A_J_ROTY:
-                                        ry.Keys = keys;
-                                        break;
-                                    case JointTrackType.HSD_A_J_ROTZ:
-                                        rz.Keys = keys;
-                                        break;
-                                    default:
-                                        //newNodes[ind].Tracks.Add(track);
-                                        break;
+                                    //switch (t.JointTrackType)
+                                    //{
+                                    //    case JointTrackType.HSD_A_J_TRAX: k.Value -= jobjTo.TX - jobjFrom.TX; break;
+                                    //    case JointTrackType.HSD_A_J_TRAY: k.Value -= jobjTo.TY - jobjFrom.TY; break;
+                                    //    case JointTrackType.HSD_A_J_TRAZ: k.Value -= jobjTo.TZ - jobjFrom.TZ; break;
+                                    //    case JointTrackType.HSD_A_J_ROTX: k.Value -= jobjTo.RX - jobjFrom.RX; break;
+                                    //    case JointTrackType.HSD_A_J_ROTY: k.Value -= jobjTo.RY - jobjFrom.RY; break;
+                                    //    case JointTrackType.HSD_A_J_ROTZ: k.Value -= jobjTo.RZ - jobjFrom.RZ; break;
+                                    //}
                                 }
+                                var fobj = new HSD_FOBJ();
+                                fobj.SetKeys(keys, t.JointTrackType, 0.001f);
+                                t.FromFOBJ(fobj);
+
+
                             }
+                            newNodes[ind] = n;
 
-                            rotXTrack.FromFOBJ(OrientTrack(boneName, port, rx.Keys, JointTrackType.HSD_A_J_ROTX, jobj, jobjsTo[nodeIndex]));
-                            rotYTrack.FromFOBJ(OrientTrack(boneName, port, ry.Keys, JointTrackType.HSD_A_J_ROTY, jobj, jobjsTo[nodeIndex]));
-                            rotZTrack.FromFOBJ(OrientTrack(boneName, port, rz.Keys, JointTrackType.HSD_A_J_ROTZ, jobj, jobjsTo[nodeIndex]));
+                            //FOBJ_Player rx = new FOBJ_Player(); rx.Keys.Add(new FOBJKey() { Value = jobj.RX, InterpolationType = GXInterpolationType.HSD_A_OP_CON });
+                            //FOBJ_Player ry = new FOBJ_Player(); ry.Keys.Add(new FOBJKey() { Value = jobj.RY, InterpolationType = GXInterpolationType.HSD_A_OP_CON });
+                            //FOBJ_Player rz = new FOBJ_Player(); rz.Keys.Add(new FOBJKey() { Value = jobj.RZ, InterpolationType = GXInterpolationType.HSD_A_OP_CON });
 
-                            newNodes[ind].Tracks.Add(rotXTrack);
-                            newNodes[ind].Tracks.Add(rotYTrack);
-                            newNodes[ind].Tracks.Add(rotZTrack);
+                            //HSD_Track rotXTrack = new HSD_Track();
+                            //HSD_Track rotYTrack = new HSD_Track();
+                            //HSD_Track rotZTrack = new HSD_Track();
 
-                            foreach(var track in newNodes[ind].Tracks)
-                            {
-                                //System.Diagnostics.Debug.WriteLine(track.FOBJ.JointTrackType + " " + track.FOBJ.GetDecodedKeys().Count);
-                            }
+                            //foreach (var track in n.Tracks)
+                            //{
+                            //    var fobj = track.ToFOBJ();
+                            //    var keys = fobj.GetDecodedKeys();
+                            //    switch (fobj.JointTrackType)
+                            //    {
+                            //        case JointTrackType.HSD_A_J_ROTX:
+                            //            rx.Keys = keys;
+                            //            break;
+                            //        case JointTrackType.HSD_A_J_ROTY:
+                            //            ry.Keys = keys;
+                            //            break;
+                            //        case JointTrackType.HSD_A_J_ROTZ:
+                            //            rz.Keys = keys;
+                            //            break;
+                            //        default:
+                            //            //newNodes[ind].Tracks.Add(track);
+                            //            break;
+                            //    }
+                            //}
+
+                            //rotXTrack.FromFOBJ(OrientTrack(boneName, port, rx.Keys, JointTrackType.HSD_A_J_ROTX, jobj, jobjsTo[nodeIndex]));
+                            //rotYTrack.FromFOBJ(OrientTrack(boneName, port, ry.Keys, JointTrackType.HSD_A_J_ROTY, jobj, jobjsTo[nodeIndex]));
+                            //rotZTrack.FromFOBJ(OrientTrack(boneName, port, rz.Keys, JointTrackType.HSD_A_J_ROTZ, jobj, jobjsTo[nodeIndex]));
+
+                            //newNodes[ind].Tracks.Add(rotXTrack);
+                            //newNodes[ind].Tracks.Add(rotYTrack);
+                            //newNodes[ind].Tracks.Add(rotZTrack);
+
+                            //foreach(var track in newNodes[ind].Tracks)
+                            //{
+                            //    //System.Diagnostics.Debug.WriteLine(track.FOBJ.JointTrackType + " " + track.FOBJ.GetDecodedKeys().Count);
+                            //}
                         }
                         else
                         if (ind < newNodes.Count && ind >= 0)
+                        {
                             newNodes[ind] = n;
+                        }
                     }
 
                     nodeIndex++;
