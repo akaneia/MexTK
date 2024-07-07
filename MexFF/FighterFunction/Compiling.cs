@@ -170,7 +170,7 @@ namespace MexTK.FighterFunction
             if (clean)
             {
                 if (Directory.Exists(buildPath)) 
-                    Directory.Delete(buildPath);
+                    Directory.Delete(buildPath, true);
             }
 
             return linkedElf;
